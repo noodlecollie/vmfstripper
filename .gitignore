@@ -1,0 +1,4 @@
+*.swp
+*.tex~
+.DS_Store
+*.pro.user*
