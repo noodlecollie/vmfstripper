@@ -2,13 +2,21 @@
 #include "ui_mainwindow.h"
 #include <QtDebug>
 #include <QSet>
+#include <QFileDialog>
+#include <QFileInfo>
+#include <QTextStream>
+#include <QTime>
+#include <QDate>
 
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
     ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
+    m_pLogFile = NULL;
+    handleLogFileStatusChange(ui->cbLogToFile->checkState());
     setUpTableHeaders();
+    m_szDefaultDir = qApp->applicationDirPath();
 
     statusBar()->showMessage("Ready.");
 }
@@ -136,4 +144,92 @@ void MainWindow::clearReplacementTable()
     ui->tableReplacement->clear();
     ui->tableReplacement->setRowCount(1);
     setUpTableHeaders();
+}
+
+void MainWindow::chooseVMFFile()
+{
+    QString file = QFileDialog::getOpenFileName(this, "Chose file", m_szDefaultDir, "*.vmf");
+    if ( file.isNull() )
+    {
+        ui->tbFilename->setText(QString());
+        ui->labelFileSize->setText("0 bytes");
+        statusBar()->showMessage("Choosing file failed.");
+        return;
+    }
+    
+    ui->tbFilename->setText(file);
+    QFileInfo info(file);
+    m_szDefaultDir = info.canonicalFilePath();
+    ui->labelFileSize->setText(QString("%0 bytes").arg(info.size()));
+    
+    statusBar()->showMessage(QString("Chose file: ") + ui->tbFilename->text());
+    qDebug() << "Chose file:" << ui->tbFilename->text();
+}
+
+void MainWindow::receiveLogMessage(QtMsgType type, const QString &msg)
+{
+    QString rich;
+    
+    switch (type)
+    {
+        case QtWarningMsg:
+        {
+            rich = QString("<span style='color:#510099;font-family:\"Lucida Console\",monospace;'>[%0-%1] %2</span>")
+                    .arg(QDate::currentDate().toString("yyyy:MM:dd")).arg(QTime::currentTime().toString("hh:mm:ss")).arg(msg);
+            break;
+        }
+        case QtCriticalMsg:
+        {
+            rich = QString("<span style='color:#F00;font-family:\"Lucida Console\",monospace;'>[%0-%1] %2</span>")
+                    .arg(QDate::currentDate().toString("yyyy:MM:dd")).arg(QTime::currentTime().toString("hh:mm:ss")).arg(msg);
+            break;
+        }
+        case QtFatalMsg:
+        {
+            rich = QString("<span style='color:#F00;font-family:\"Lucida Console\",monospace;'>[%0-%1] %2</span>")
+                    .arg(QDate::currentDate().toString("yyyy:MM:dd")).arg(QTime::currentTime().toString("hh:mm:ss")).arg(msg);
+            break;
+        }
+        default:
+        {
+            rich = QString("<span style='color:#000;font-family:\"Lucida Console\",monospace;'>[%0-%1] %2</span>")
+                    .arg(QDate::currentDate().toString("yyyy:MM:dd")).arg(QTime::currentTime().toString("hh:mm:ss")).arg(msg);
+            break;
+        }
+    }
+    
+    ui->logWindow->setText(ui->logWindow->toHtml() + rich);
+    ui->logWindow->ensureCursorVisible();
+    
+    if ( m_pLogFile && m_pLogFile->isOpen() )
+    {
+        QTextStream stream(m_pLogFile);
+        stream << msg;
+    }
+}
+
+void MainWindow::handleLogFileStatusChange(int status)
+{
+    // Status is 2 for checked and 0 for unchecked.
+    if ( status == 2 )
+    {
+        if ( !m_pLogFile )
+        {
+            m_pLogFile = new QFile(qApp->applicationDirPath() + QString("output.log"));
+        }
+        
+        if ( !m_pLogFile->isOpen() )
+        {
+            if ( !m_pLogFile->open(QIODevice::Append) ) return;
+        }
+    }
+    else
+    {
+        if ( m_pLogFile && m_pLogFile->isOpen() )
+        {
+            m_pLogFile->close();
+            delete m_pLogFile;
+            m_pLogFile = NULL;
+        }
+    }
 }
