@@ -60,7 +60,7 @@ float KeyValuesNode::toFloat(bool *ok) const
 
 QColor KeyValuesNode::toColor() const
 {
-    return m_varValue.value<QColor();
+    return m_varValue.value<QColor>();
 }
 
 void KeyValuesNode::setValue(const QString &val)
@@ -108,6 +108,14 @@ void KeyValuesNode::setValue(const QVariant &value)
 QVariant KeyValuesNode::value() const
 {
     return m_varValue;
+}
+
+void KeyValuesNode::clearValue()
+{
+    if ( !isValueValid() ) return;
+
+    m_varValue = QVariant();
+    emit valueChanged(m_varValue);
 }
 
 bool KeyValuesNode::isKeyValid() const

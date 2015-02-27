@@ -7,11 +7,15 @@
 #include <QColor>
 #include <QVariant>
 
+class KeyValuesParser;
+
 class KeyValuesNode : public QObject
 {
     Q_OBJECT
     Q_PROPERTY(QString key READ key WRITE setKey NOTIFY keyChanged)
     Q_PROPERTY(QVariant value READ value WRITE setValue NOTIFY valueChanged)
+
+    friend class KeyValuesParser;
 public:
     explicit KeyValuesNode(KeyValuesNode* parent = 0);
     explicit KeyValuesNode(const QString &key, KeyValuesNode* parent = 0);
@@ -25,6 +29,8 @@ public:
     {
         return findChildren<KeyValuesNode*>(QString(), Qt::FindDirectChildrenOnly);
     }
+
+    inline int childCount() const { return childNodes.count(); }
     
     inline KeyValuesNode* parentNode() const
     {
@@ -33,6 +39,7 @@ public:
     
     QVariant value() const;
     void setValue(const QVariant &value);
+    void clearValue();
     
     void setValue(const QString &val);
     void setValue(int value);
@@ -49,7 +56,9 @@ public:
     
     bool isKeyValid() const;
     bool isValueValid() const;
-    inline bool isValid() const { return isKeyValid() && isValueValid(); }
+    inline bool isValid() const { return isKeyValid() && (isValueValid() || childCount() > 0 ); }
+
+    inline bool containerNode() const { return childCount() > 0; }
     
 signals:
     void valueChanged(const QVariant&);
@@ -58,7 +67,7 @@ signals:
 public slots:
     
 private:
-    QString cleanString(const QString &str);
+    static QString cleanString(const QString &str);
     
     QString     m_szKey;
     QVariant    m_varValue;

@@ -14,9 +14,11 @@ TEMPLATE = app
 
 SOURCES += main.cpp\
         mainwindow.cpp \
-    keyvaluesnode.cpp
+    keyvaluesnode.cpp \
+    keyvaluesparser.cpp
 
 HEADERS  += mainwindow.h \
-    keyvaluesnode.h
+    keyvaluesnode.h \
+    keyvaluesparser.h
 
 FORMS    += mainwindow.ui
