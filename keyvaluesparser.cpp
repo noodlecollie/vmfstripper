@@ -2,9 +2,11 @@
 #include "keyvaluesnode.h"
 #include <QRegularExpression>
 #include <QtDebug>
+#include <QApplication>
+#include <QTime>
 
 /**
- * A whitespace-agnostic keyvalues language is defined as follows:
+ * A whitespace-agnostic keyvalues language (without catering for comments) is defined as follows:
  *
  * <string> terminal is an unquoted sequence of alphanumeric characters (including underscores).
  * <qstring> terminal is a quoted sequence of characters that does not include any unescaped quotes within
@@ -65,6 +67,26 @@ KeyValuesParser::KeyValuesParser(QObject *parent) :
     m_iState = StateBase;
     m_bSendUpdates = false;
     m_flProgress = 0.0f;
+    m_bShouldCancel = false;
+    m_bInterruptable = false;
+    m_bParsing = false;
+    m_iLastNewlinePosition = -1;
+    m_iNewlineCount = 0;
+    m_iErrorChar;
+    m_iErrorCode = NoError;
+}
+
+void KeyValuesParser::characterPosition(int pos, int &line, int &character) const
+{
+    if ( m_iLastNewlinePosition < 0 )
+    {
+        line = 0;
+        character = pos;
+        return;
+    }
+    
+    line = m_iNewlineCount+1;
+    character = pos - m_iLastNewlinePosition - 1;
 }
 
 void KeyValuesParser::identifyNextToken(const QStringRef &content, int &begin, int &end)
@@ -142,6 +164,36 @@ void KeyValuesParser::identifyNextToken(const QStringRef &content, int &begin, i
         end = eIndex - 1;
         return;
     }
+    
+    // If the character and the one after are both forward slashes, this is a line comment.
+    // Find the next newline after them.
+    else if ( content.string()->at(bIndex) == '/' && content.string()->at(bIndex+1) == '/' )
+    {
+        // If the second slash is at the end of the string, just return them both.
+        if ( bIndex + 1 == content.string()->length() - 1 )
+        {
+            begin = bIndex;
+            end = content.string()->length() - 1;
+            return;
+        }
+        
+        // Find the next newline.
+        int eIndex = content.string()->indexOf('\n', bIndex + 2);
+        
+        // If we didn't find one, return the rest of the string.
+        if ( eIndex < 1 )
+        {
+            begin = bIndex;
+            end = content.string()->length() - 1;
+            return;
+        }
+        
+        // If we did, return the entire section.
+        // The newline can be stripped later.
+        begin = bIndex;
+        end = eIndex;
+        return;
+    }
 
     // If the character is anything else, just return it.
     else
@@ -177,17 +229,50 @@ QString KeyValuesParser::unescapeToken(const QStringRef &token)
     return str;
 }
 
+QString KeyValuesParser::extractComment(const QStringRef &token)
+{
+    QString comment = token.toString();
+    
+    int ss = comment.indexOf("//");
+    if ( ss < 0 ) return comment;
+    
+    int nl = comment.indexOf('\n');
+    if ( nl < 0 )
+    {
+        return comment.mid(ss+2).trimmed();
+    }
+    
+    return comment.mid(ss+2, nl-ss-2).trimmed();
+}
+
+QString KeyValuesParser::stringListToMultilineString(const QStringList &list)
+{
+    QString output;
+    bool first = true;
+    foreach ( QString s, list )
+    {
+        if ( !first ) output += '\n';
+        output += s;
+    }
+    
+    return output;
+}
+
 KeyValuesParser::TokenType KeyValuesParser::classifyToken(const QStringRef &token)
 {
     if ( token == "{" ) return TokenPush;
     if ( token == "}" ) return TokenPop;
     if ( token.at(0) == '"' && token.at(token.length() - 1) == '"' ) return TokenQuoted;
+    if ( token.at(0) == '/' && token.at(1) == '/' ) return TokenComment;
 
     // [(\w|_]+
     QRegularExpression plainToken("[(\\w|_]+");
     if ( plainToken.match(token.toString(), 0, QRegularExpression::NormalMatch,
                           QRegularExpression::AnchoredMatchOption).hasMatch() ) return TokenPlain;
 
+    m_iErrorChar = token.position();
+    m_iErrorCode = InvalidTokenError;
+    
     return TokenInvalid;
 }
 
@@ -195,6 +280,9 @@ KeyValuesParser::ParseError KeyValuesParser::parse(const QString &content, KeyVa
 {
     setState(StateBase);
     m_szLastToken = QString();
+    m_PendingComments.clear();
+    m_iLastNewlinePosition = -1;
+    m_iNewlineCount = 0;
     updateProgress(0);
 
     if ( content.isEmpty() ) return NoContentError;
@@ -215,14 +303,60 @@ KeyValuesParser::ParseError KeyValuesParser::parse(const QString &content, KeyVa
         delete first;
         m_szLastToken = QString();
         updateProgress(1);
+        
+        m_iErrorCode = NoContentError;
+        m_iErrorChar = 0;
+        
         return NoContentError;
     }
+    
+    QTime timer;
+    timer.start();
+    
+    m_bShouldCancel = false;
+    m_bParsing = true;
+    bool haveNonComment = false;
 
     // Continually parse the content.
     do
     {
-        // Send an update on how far we are through the parsing.
-        updateProgress((float)end/(float)content.length());
+        updateNewlineBookkeeping(content, end);
+        
+        if ( m_bInterruptable || m_bSendUpdates )
+        {
+            QApplication::processEvents(QEventLoop::AllEvents, 10);
+            
+            if ( m_bShouldCancel )
+            {
+                delete first;
+                m_szLastToken = QString();
+                updateProgress(1);
+                m_bParsing = false;
+                
+                m_iErrorCode = OperationCancelledError;
+                m_iErrorChar = begin < 0 ? 0 : begin;
+                
+                return OperationCancelledError;
+            }
+            
+            if ( timer.elapsed() >= 500 )
+            {
+                // Send an update on how far we are through the parsing.
+                if ( m_bSendUpdates ) emit byteProgress(end, content.length());
+                updateProgress((float)end/(float)content.length());
+                
+                timer.restart();
+            }
+        }
+        
+        if ( timer.elapsed() >= 500 )
+        {
+            // Send an update on how far we are through the parsing.
+            if ( m_bSendUpdates ) emit byteProgress(end, content.length());
+            updateProgress((float)end/(float)content.length());
+            
+            timer.restart();
+        }
 
         // Get the next token we've found.
         QStringRef token = segmentRef(content.midRef(0), begin, end);
@@ -236,30 +370,41 @@ KeyValuesParser::ParseError KeyValuesParser::parse(const QString &content, KeyVa
         {
             case TokenPush:
             {
+                haveNonComment = true;
                 error = handleTokenPush(token, nodeStack);
                 break;
             }
 
             case TokenPop:
             {
+                haveNonComment = true;
                 error = handleTokenPop(token, nodeStack);
                 break;
             }
 
             case TokenPlain:
             {
+                haveNonComment = true;
                 error = handleTokenPlain(token, nodeStack);
                 break;
             }
 
             case TokenQuoted:
             {
+                haveNonComment = true;
                 error = handleTokenQuoted(token, nodeStack);
+                break;
+            }
+            
+            case TokenComment:
+            {
+                error = NoError;
                 break;
             }
 
             default:
             {
+                haveNonComment = true;
                 error = InvalidTokenError;
                 break;
             }
@@ -271,12 +416,13 @@ KeyValuesParser::ParseError KeyValuesParser::parse(const QString &content, KeyVa
             delete first;
             m_szLastToken = QString();
             updateProgress(1);
+            m_bParsing = false;
             return error;
         }
 
         // Get the string ref for the next token.
         QStringRef nextToken = content.midRef(end+1);
-
+        
         // Identify the token.
         identifyNextToken(nextToken, begin, end);
     }
@@ -288,7 +434,25 @@ KeyValuesParser::ParseError KeyValuesParser::parse(const QString &content, KeyVa
     {
         delete first;
         m_szLastToken = QString();
+        m_bParsing = false;
+        
+        m_iErrorChar = content.size() - 1;
+        m_iErrorCode = UnmatchedBraceError;
+        
         return UnmatchedBraceError;
+    }
+    
+    // Check whether we got any tokens other than comments.
+    if ( haveNonComment == false )
+    {
+        delete first;
+        m_szLastToken = QString();
+        m_bParsing = false;
+        
+        m_iErrorChar = content.size() - 1;
+        m_iErrorCode = NoContentError;
+        
+        return NoContentError;
     }
 
     // Change the parent of the wrapper's children.
@@ -301,11 +465,13 @@ KeyValuesParser::ParseError KeyValuesParser::parse(const QString &content, KeyVa
     // Delete the wrapper.
     delete first;
     m_szLastToken = QString();
+    m_bParsing = false;
 
+    m_iErrorChar = 0;
     return NoError;
 }
 
-KeyValuesParser::ParseError KeyValuesParser::handleTokenPush(const QStringRef &, QStack<KeyValuesNode *> &stack)
+KeyValuesParser::ParseError KeyValuesParser::handleTokenPush(const QStringRef &ref, QStack<KeyValuesNode *> &stack)
 {
     // Do things depending on our state.
     switch ( m_iState )
@@ -316,6 +482,10 @@ KeyValuesParser::ParseError KeyValuesParser::handleTokenPush(const QStringRef &,
         {
             setState(StateFail);
             m_szLastToken = QString();
+            
+            m_iErrorChar = ref.position();
+            m_iErrorCode = UnnamedNodeError;
+            
             return UnnamedNodeError;
         }
 
@@ -324,6 +494,8 @@ KeyValuesParser::ParseError KeyValuesParser::handleTokenPush(const QStringRef &,
         case StateElevated:
         {
             KeyValuesNode* node = new KeyValuesNode(m_szLastToken, stack.top());
+            node->setComment(stringListToMultilineString(m_PendingComments));
+            m_PendingComments.clear();
             stack.push(node);
             setState(StateBase);
             m_szLastToken = QString();
@@ -336,12 +508,16 @@ KeyValuesParser::ParseError KeyValuesParser::handleTokenPush(const QStringRef &,
             Q_ASSERT(false);
             setState(StateFail);
             m_szLastToken = QString();
+            
+            m_iErrorChar = ref.position();
+            m_iErrorCode = UnspecifiedError;
+            
             return UnspecifiedError;
         }
     }
 }
 
-KeyValuesParser::ParseError KeyValuesParser::handleTokenPop(const QStringRef &, QStack<KeyValuesNode *> &stack)
+KeyValuesParser::ParseError KeyValuesParser::handleTokenPop(const QStringRef &ref, QStack<KeyValuesNode *> &stack)
 {
     // Do things depending on our state.
     switch ( m_iState )
@@ -356,6 +532,10 @@ KeyValuesParser::ParseError KeyValuesParser::handleTokenPop(const QStringRef &, 
             {
                 setState(StateFail);
                 m_szLastToken = QString();
+                
+                m_iErrorChar = ref.position();
+                m_iErrorCode = StackUnderflowError;
+                
                 return StackUnderflowError;
             }
 
@@ -371,6 +551,10 @@ KeyValuesParser::ParseError KeyValuesParser::handleTokenPop(const QStringRef &, 
         {
             setState(StateFail);
             m_szLastToken = QString();
+            
+            m_iErrorChar = ref.position();
+            m_iErrorCode = IncompleteNodeError;
+            
             return IncompleteNodeError;
         }
 
@@ -380,6 +564,10 @@ KeyValuesParser::ParseError KeyValuesParser::handleTokenPop(const QStringRef &, 
             Q_ASSERT(false);
             setState(StateFail);
             m_szLastToken = QString();
+            
+            m_iErrorChar = ref.position();
+            m_iErrorCode = UnspecifiedError;
+            
             return UnspecifiedError;
         }
     }
@@ -420,6 +608,8 @@ KeyValuesParser::ParseError KeyValuesParser::handleTokenGeneric(const QStringRef
         case StateElevated:
         {
             KeyValuesNode* node = new KeyValuesNode(stack.top());
+            node->setComment(stringListToMultilineString(m_PendingComments));
+            m_PendingComments.clear();
             node->setKey(m_szLastToken);
             node->setValue(str.toString());
             setState(StateBase);
@@ -433,9 +623,26 @@ KeyValuesParser::ParseError KeyValuesParser::handleTokenGeneric(const QStringRef
             Q_ASSERT(false);
             setState(StateFail);
             m_szLastToken = QString();
+            
+            m_iErrorChar = str.position();
+            m_iErrorCode = UnspecifiedError;
+            
             return UnspecifiedError;
         }
     }
+}
+
+KeyValuesParser::ParseError KeyValuesParser::handleTokenComment(const QStringRef &str, QStack<KeyValuesNode *> &)
+{
+    if ( !parseComments() ) return NoError; // How do I feel about this? I cannot pass comment.
+    
+    // Extract the comment.
+    QString comment = extractComment(str);
+    
+    // Add the comment to our pending list.
+    m_PendingComments.append(comment);
+    
+    return NoError;
 }
 
 void KeyValuesParser::setState(State s)
@@ -461,5 +668,125 @@ void KeyValuesParser::updateProgress(float progress)
     if ( m_flProgress == progress) return;
 
     m_flProgress = progress;
-    emit parseUpdate(m_flProgress);
+    if ( m_bSendUpdates ) emit parseUpdate(m_flProgress);
+}
+
+void KeyValuesParser::cancelParsing()
+{
+    m_bShouldCancel = true;
+}
+
+bool KeyValuesParser::interruptable() const
+{
+    return m_bInterruptable;
+}
+
+void KeyValuesParser::setInterruptable(bool enabled)
+{
+    if ( m_bParsing || m_bInterruptable == enabled ) return;
+    
+    m_bInterruptable = enabled;
+    emit interruptableStatusChanged(m_bInterruptable);
+}
+
+bool KeyValuesParser::parseComments() const
+{
+    return m_bParseComments;
+}
+
+void KeyValuesParser::setParseComments(bool enabled)
+{
+    if ( m_bParseComments == enabled ) return;
+    
+    m_bParseComments = enabled;
+    emit parseCommentsStatusChanged(m_bParseComments);
+}
+
+void KeyValuesParser::stringForParseError(ParseError error, QString &title, QString &description)
+{
+    switch (error)
+    {
+        case NoError:
+        {
+            title = "No error";
+            description = "No error occurred.";
+            break;
+        }
+        
+        case NoContentError:
+        {
+            title = "No content";
+            description = "No keyvalues content was present in the file provided.";
+            break;
+        }
+        
+        case InvalidTokenError:
+        {
+            title = "Invalid token";
+            description = "Invalid syntax was encountered in the file.";
+            break;
+        }
+        
+        case StackUnderflowError:
+        {
+            title = "Stack underflow";
+            description = "More ending braces than beginning braces were present in the file.";
+            break;
+        }
+        
+        case UnnamedNodeError:
+        {
+            title = "Unnamed node";
+            description = "A new subkey was started within the file before its parent's key had been specified.";
+            break;
+        }
+        
+        case IncompleteNodeError:
+        {
+            title = "Incomplete node";
+            description = "The key of a key-value pair was specified without a corresponding value.";
+            break;
+        }
+        
+        case UnmatchedBraceError:
+        {
+            title = "Unmatched brace";
+            description = "The end of the file was reached before all brace pairs had been closed.";
+            break;
+        }
+        
+        case OperationCancelledError:
+        {
+            title = "Operation cancelled";
+            description = "The parsing operation was cancelled before it was able to finish.";
+            break;
+        }
+        
+        default:
+        {
+            title = "Unspecified error";
+            description = "An unknown error was encountered. Congratulations! You must have been doing something pretty special.";
+            break;
+        }
+    }
+}
+
+void KeyValuesParser::updateNewlineBookkeeping(const QString &content, int furthestChar)
+{
+    // Find out how many newlines there are between our last checked position and this one.
+    for ( int i = m_iLastNewlinePosition < 0 ? 0 : m_iLastNewlinePosition + 1; i <= furthestChar; i++ )
+    {
+        if ( content.at(i) == '\n' )
+        {
+            m_iLastNewlinePosition = i;
+            m_iNewlineCount++;
+        }
+    }
+}
+
+void KeyValuesParser::parseError(int &error, QString &title, QString &description, int &lineNo, int &charNo) const
+{
+    error = m_iErrorCode;
+    stringForParseError(m_iErrorCode, title, description);
+    characterPosition(m_iErrorChar, lineNo, charNo);
 }

@@ -1,0 +1,55 @@
+// Uncomment these entries to test various errors.
+// Leave entirely commented to get the NoContent error.
+
+// Invalid token error
+// versi%oninfo
+// {
+	// "editorversion" "400"
+	// "editorbuild" "4940"
+	// "mapversion" "36"
+	// "formatversion" "100"
+	// "prefab" "0"
+// }
+
+// Stack underflow error.
+// versioninfo
+// {
+	// "editorversion" "400"
+	// "editorbuild" "4940"
+	// "mapversion" "36"
+	// "formatversion" "100"
+	// "prefab" "0"
+// }
+// }
+
+// Unnamed node error
+// versioninfo
+// {
+	// {
+	// }
+	// "editorversion" "400"
+	// "editorbuild" "4940"
+	// "mapversion" "36"
+	// "formatversion" "100"
+	// "prefab" "0"
+// }
+
+// Incomplete node error
+// versioninfo
+// {
+	// "editorversion" "400"
+	// "editorbuild" "4940"
+	// "mapversion" "36"
+	// "formatversion" "100"
+	// "prefab" "0"
+	// "incomplete"
+// }
+
+// Unmatched brace error
+// versioninfo
+// {
+	// "editorversion" "400"
+	// "editorbuild" "4940"
+	// "mapversion" "36"
+	// "formatversion" "100"
+	// "prefab" "0"

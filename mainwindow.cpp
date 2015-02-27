@@ -7,6 +7,14 @@
 #include <QTextStream>
 #include <QTime>
 #include <QDate>
+#include "keyvaluesnode.h"
+#include <QMessageBox>
+#include "keyvaluesparser.h"
+#include "loadvmfdialogue.h"
+#include <QTime>
+
+#define STYLESHEET_FAILED       "QLabel { background-color : #D63742; }"
+#define STYLESHEET_SUCCEEDED    "QLabel { background-color : #6ADB64; }"
 
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
@@ -14,6 +22,8 @@ MainWindow::MainWindow(QWidget *parent) :
 {
     ui->setupUi(this);
     m_pLogFile = NULL;
+    m_pKVTree = NULL;
+    ui->labelIsImported->setStyleSheet(STYLESHEET_FAILED);
     handleLogFileStatusChange(ui->cbLogToFile->checkState());
     setUpTableHeaders();
     m_szDefaultDir = qApp->applicationDirPath();
@@ -24,6 +34,7 @@ MainWindow::MainWindow(QWidget *parent) :
 MainWindow::~MainWindow()
 {
     delete ui;
+    delete m_pKVTree;
 }
 
 void MainWindow::removeHighlightedEntitiesFromList()
@@ -148,7 +159,7 @@ void MainWindow::clearReplacementTable()
 
 void MainWindow::chooseVMFFile()
 {
-    QString file = QFileDialog::getOpenFileName(this, "Chose file", m_szDefaultDir, "*.vmf");
+    QString file = QFileDialog::getOpenFileName(this, "Chose file", m_szDefaultDir, tr("Valve Map File (*.vmf)"));
     if ( file.isNull() )
     {
         ui->tbFilename->setText(QString());
@@ -162,8 +173,33 @@ void MainWindow::chooseVMFFile()
     m_szDefaultDir = info.canonicalFilePath();
     ui->labelFileSize->setText(QString("%0 bytes").arg(info.size()));
     
+    ui->btnChooseOutput->setEnabled(true);
+    ui->btnImport->setEnabled(true);
+    QString newFileName = info.completeBaseName() + QString("_stripped.") + info.suffix();
+    ui->tbOutputFile->setText(info.canonicalFilePath() + QString("/") + newFileName);
+    
+    if ( m_pKVTree )
+    {
+        delete m_pKVTree;
+        m_pKVTree = NULL;
+    }
+    
+    ui->labelIsImported->setText("Not Imported");
+    ui->labelIsImported->setStyleSheet(STYLESHEET_FAILED);
+    
     statusBar()->showMessage(QString("Chose file: ") + ui->tbFilename->text());
     qDebug() << "Chose file:" << ui->tbFilename->text();
+    qDebug() << "Output file:" << ui->tbOutputFile->text();
+}
+
+void MainWindow::chooseExportFile()
+{
+    QString file = QFileDialog::getSaveFileName(this, "Choose output file", m_szDefaultDir + QString("/%0").arg(ui->tbOutputFile->text()), tr("Valve Map File (*.vmf)"));
+    if ( file.isNull() ) return;
+    
+    ui->tbOutputFile->setText(file);
+    statusBar()->showMessage(QString("Chose output file: ") + ui->tbOutputFile->text());
+    qDebug() << "Chose output file:" << ui->tbOutputFile->text();
 }
 
 void MainWindow::receiveLogMessage(QtMsgType type, const QString &msg)
@@ -232,4 +268,83 @@ void MainWindow::handleLogFileStatusChange(int status)
             m_pLogFile = NULL;
         }
     }
+}
+
+void MainWindow::importVMFFile()
+{
+    QString filename = ui->tbFilename->text().trimmed();
+    if ( filename.isEmpty() ) return;
+    
+    QFile file(filename);
+    if ( !file.open(QIODevice::ReadOnly) )
+    {
+        QMessageBox::critical(this, "Error", "Unable to open the specified file for reading.");
+        
+        statusBar()->showMessage("Import failed.");
+        qDebug() << "Import failed: unable to open file for reading.";
+        ui->labelIsImported->setText("Not Imported");
+        ui->labelIsImported->setStyleSheet(STYLESHEET_FAILED);
+        delete m_pKVTree;
+        m_pKVTree = NULL;
+        return;
+    }
+    
+    QFileInfo info(file);
+    qint64 fileSize = info.size();
+    
+    statusBar()->showMessage(QString("Import initiated."));
+    qDebug() << "Import initiated.";
+    
+    KeyValuesParser parser;
+    parser.setSendUpdates(true);
+    parser.setInterruptable(true);
+    
+    LoadVmfDialogue dialogue(this);
+    dialogue.setModal(true);
+    dialogue.setMessage("Importing...");
+    
+    connect(&parser, SIGNAL(parseUpdate(float)), &dialogue, SLOT(updateProgressBar(float)));
+    connect(&parser, SIGNAL(byteProgress(int,int)), &dialogue, SLOT(updateByteProgress(int,int)));
+    connect(&dialogue, SIGNAL(rejected()), &parser, SLOT(cancelParsing()));
+    
+    if ( m_pKVTree )
+    {
+        delete m_pKVTree;
+        m_pKVTree = new KeyValuesNode("rootNode");
+    }
+    
+    dialogue.show();
+    QString content(file.readAll());
+    file.close();
+    
+    QTime timer;
+    timer.start();
+    KeyValuesParser::ParseError error = parser.parse(content, *m_pKVTree);
+    int elapsed = timer.elapsed();
+    dialogue.close();
+    
+    if ( error != KeyValuesParser::NoError )
+    {
+        QString title, description;
+        int lineNo = 0, charNo = 0, er = 0;
+        parser.parseError(er, title, description, lineNo, charNo);
+        
+        QMessageBox::critical(this, "Import failed", QString("<center>The import failed for the following reason:</center><br/>Line %0, position %1:<br/>%2: %3")
+                              .arg(lineNo).arg(charNo).arg(title).arg(description));
+        
+        statusBar()->showMessage("Import failed.");
+        qDebug() << "The import failed for the following reason: Line" << lineNo << "position" << charNo << "-" << title << description;
+        
+        ui->labelIsImported->setText("Not Imported");
+        ui->labelIsImported->setStyleSheet(STYLESHEET_FAILED);
+        delete m_pKVTree;
+        m_pKVTree = NULL;
+        return;
+    }
+    
+    ui->labelIsImported->setText("Imported");
+    ui->labelIsImported->setStyleSheet(STYLESHEET_SUCCEEDED);
+    statusBar()->showMessage("Import succeeded.");
+    float seconds = (float)elapsed/1000.0f;
+    qDebug().nospace() << "Import succeeded: processed " << fileSize << " bytes in " << seconds << "seconds (" << (float)fileSize/seconds << "bytes/sec)";
 }

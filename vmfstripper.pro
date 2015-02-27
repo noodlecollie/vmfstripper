@@ -15,10 +15,13 @@ TEMPLATE = app
 SOURCES += main.cpp\
         mainwindow.cpp \
     keyvaluesnode.cpp \
-    keyvaluesparser.cpp
+    keyvaluesparser.cpp \
+    loadvmfdialogue.cpp
 
 HEADERS  += mainwindow.h \
     keyvaluesnode.h \
-    keyvaluesparser.h
+    keyvaluesparser.h \
+    loadvmfdialogue.h
 
-FORMS    += mainwindow.ui
+FORMS    += mainwindow.ui \
+    loadvmfdialogue.ui

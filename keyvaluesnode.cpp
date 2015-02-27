@@ -184,13 +184,13 @@ void KeyValuesNode::writeDebug(QDebug &dbg, const KeyValuesNode &node, int depth
     QList<KeyValuesNode*> children = node.childNodes();
     if ( children.count() < 1 )
     {
-        if ( node.isKeyValid() ) dbg.nospace().noquote() << tab << "KeyValuesNode(\"" << node.key()
+        if ( node.isKeyValid() ) dbg.nospace() << tab << "KeyValuesNode(\"" << node.key()
                                                          << "\", \"" << node.toString() << "\")\n";
-        else dbg.nospace().noquote() << tab << "KeyValuesNode()\n";
+        else dbg.nospace() << tab << "KeyValuesNode()\n";
         return;
     }
 
-    dbg.nospace().noquote() << tab << "KeyValuesNode(\"" << node.key() << "\")\n" << tab << "{\n";
+    dbg.nospace() << tab << "KeyValuesNode(\"" << node.key() << "\")\n" << tab << "{\n";
 
     foreach ( KeyValuesNode* n, children )
     {
@@ -198,6 +198,26 @@ void KeyValuesNode::writeDebug(QDebug &dbg, const KeyValuesNode &node, int depth
     }
 
     dbg.nospace() << tab << "}\n";
+}
+
+QString KeyValuesNode::comment() const
+{
+    return m_szComment;
+}
+
+void KeyValuesNode::setComment(const QString &comment)
+{
+    QString s = comment.trimmed();
+    
+    if ( s == m_szComment ) return;
+    
+    m_szComment = s;
+    emit commentChanged(m_szComment);
+}
+
+bool KeyValuesNode::hasComment() const
+{
+    return !m_szComment.isEmpty();
 }
 
 QDebug& operator<<(QDebug& dbg, const KeyValuesNode &node)

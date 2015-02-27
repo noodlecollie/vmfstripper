@@ -14,6 +14,7 @@ class KeyValuesNode : public QObject
     Q_OBJECT
     Q_PROPERTY(QString key READ key WRITE setKey NOTIFY keyChanged)
     Q_PROPERTY(QVariant value READ value WRITE setValue NOTIFY valueChanged)
+    Q_PROPERTY(QString comment READ comment WRITE setComment NOTIFY commentChanged)
 
     friend class KeyValuesParser;
 public:
@@ -54,17 +55,22 @@ public:
     QString key() const;
     void setKey(const QString &key);
     
+    QString comment() const;
+    void setComment(const QString &comment);
+    
     bool isKeyValid() const;
     bool isValueValid() const;
     inline bool isValid() const { return isKeyValid() && (isValueValid() || isContainerNode() ); }
 
     inline bool isContainerNode() const { return childCount() > 0; }
+    bool hasComment() const;
 
     static void writeDebug(QDebug &dbg, const KeyValuesNode &node, int depth = 0);
     
 signals:
     void valueChanged(const QVariant&);
     void keyChanged(const QString&);
+    void commentChanged(const QString&);
     
 public slots:
     
@@ -73,6 +79,7 @@ private:
     
     QString     m_szKey;
     QVariant    m_varValue;
+    QString     m_szComment;
 };
 
 QDebug& operator<<(QDebug &dbg, const KeyValuesNode &node);

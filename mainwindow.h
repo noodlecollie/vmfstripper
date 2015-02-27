@@ -10,6 +10,7 @@ class MainWindow;
 }
 
 class QTextEdit;
+class KeyValuesNode;
 
 class MainWindow : public QMainWindow
 {
@@ -28,7 +29,9 @@ public slots:
     void removeCurrentReplacementEntry();
     void clearReplacementTable();
     void chooseVMFFile();
+    void chooseExportFile();
     void handleLogFileStatusChange(int status);
+    void importVMFFile();
 
 private:
     void clearTableRow(int row);
@@ -37,6 +40,7 @@ private:
     Ui::MainWindow *ui;
     QString m_szDefaultDir;
     QFile* m_pLogFile;
+    KeyValuesNode*  m_pKVTree;
 };
 
 #endif // MAINWINDOW_H
