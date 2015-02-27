@@ -63,9 +63,11 @@ KeyValuesParser::KeyValuesParser(QObject *parent) :
     QObject(parent)
 {
     m_iState = StateBase;
+    m_bSendUpdates = false;
+    m_flProgress = 0.0f;
 }
 
-void KeyValuesParser::identifyNextToken(const QString &contentRef, int &begin, int &end)
+void KeyValuesParser::identifyNextToken(const QStringRef &content, int &begin, int &end)
 {
     // If the string is empty, return nothing.
     if ( content.isEmpty() )
@@ -78,7 +80,7 @@ void KeyValuesParser::identifyNextToken(const QString &contentRef, int &begin, i
     // Begin by looking for the index of the next valid character that could start a token.
     // Whitespace is skipped.
     QRegularExpression reBegin("[^\\s]");
-    int bIndex = content.indexOf(reBegin);
+    int bIndex = content.string()->indexOf(reBegin, content.position());
 
     // If there was no non-whitespace character, return nothing.
     if ( bIndex < 0 )
@@ -89,27 +91,27 @@ void KeyValuesParser::identifyNextToken(const QString &contentRef, int &begin, i
     }
 
     // If the character was at the end of the string, return it on its own.
-    else if ( bIndex == content.length() - 1 )
+    else if ( bIndex == content.string()->length() - 1 )
     {
         begin = bIndex;
-        end = bIndex;
+        end = begin;
         return;
     }
 
     // Do different things depending on the character we found.
     // If the character is a quote, we need to search for a matching unescaped quote.
-    if ( content.at(bIndex) == '\"' )
+    if ( content.string()->at(bIndex) == '\"' )
     {
         // Find the next unescaped quote.
         // (?<!\\)"
         QRegularExpression findUnescapedQuote("(?<!\\\\)\"");
-        int eIndex = content.indexOf(findUnescapedQuote, bIndex+1);
+        int eIndex = content.string()->indexOf(findUnescapedQuote, bIndex + 1);
 
         // If we didn't find an unescaped quote, return the rest of the string.
         if ( eIndex < 0 )
         {
             begin = bIndex;
-            end = content.length() - 1;
+            end = content.string()->length()- 1;
             return;
         }
 
@@ -120,18 +122,18 @@ void KeyValuesParser::identifyNextToken(const QString &contentRef, int &begin, i
     }
 
     // If the character is a letter, number or underscore, we need to search for the next character that isn't.
-    else if ( content.at(bIndex).isLetterOrNumber() || content.at(bIndex) == '_' )
+    else if ( content.string()->at(bIndex).isLetterOrNumber() || content.string()->at(bIndex) == '_' )
     {
         // Find the next character that's not a letter, number or an underscore.
         // [^(\w|_)]
         QRegularExpression invalidChar("[^(\\w|_)]");
-        int eIndex = content.indexOf(invalidChar, bIndex+1);
+        int eIndex = content.string()->indexOf(invalidChar, bIndex + 1);
 
         // If we didn't find one, return the rest of the string.
         if ( eIndex < 1 )
         {
             begin = bIndex;
-            end = content.length() - 1;
+            end = content.string()->length() - 1;
             return;
         }
 
@@ -145,14 +147,14 @@ void KeyValuesParser::identifyNextToken(const QString &contentRef, int &begin, i
     else
     {
         begin = bIndex;
-        end = bIndex;
+        end = begin;
         return;
     }
 }
 
 QString KeyValuesParser::unquoteToken(const QStringRef &token)
 {
-    QString str = token.trimmed();
+    QString str = token.toString().trimmed();
     if ( str.at(0) == '"' ) str = str.right(str.length() - 1);
     if ( str.at(str.length() -1 ) == '"' ) str = str.left(str.length() - 1);
 
@@ -161,16 +163,16 @@ QString KeyValuesParser::unquoteToken(const QStringRef &token)
 
 QString KeyValuesParser::unescapeToken(const QStringRef &token)
 {
-    QString str = token;
+    QString str = token.toString();
 
     // Convert "\"" to '"'
-    str.replace(QRegularExpression("\\\\\""), '"');
+    str.replace(QRegularExpression("\\\\\""), "\"");
 
     // Convert "\n" to '\n'.
-    str.replace(QRegularExpression("\\\\n"), '\n');
+    str.replace(QRegularExpression("\\\\n"), "\n");
 
     // Convert "\t" to '\t'.
-    str.replace(QRegularExpression("\\\\t"), '\t');
+    str.replace(QRegularExpression("\\\\t"), "\t");
 
     return str;
 }
@@ -183,13 +185,20 @@ KeyValuesParser::TokenType KeyValuesParser::classifyToken(const QStringRef &toke
 
     // [(\w|_]+
     QRegularExpression plainToken("[(\\w|_]+");
-    if ( plainToken.match(token, 0, QRegularExpression::AnchoredMatchOption).hasMatch() ) return TokenPlain;
+    if ( plainToken.match(token.toString(), 0, QRegularExpression::NormalMatch,
+                          QRegularExpression::AnchoredMatchOption).hasMatch() ) return TokenPlain;
 
     return TokenInvalid;
 }
 
 KeyValuesParser::ParseError KeyValuesParser::parse(const QString &content, KeyValuesNode &container)
 {
+    setState(StateBase);
+    m_szLastToken = QString();
+    updateProgress(0);
+
+    if ( content.isEmpty() ) return NoContentError;
+
     // Keep a stack of our node hierarchy.
     QStack<KeyValuesNode*> nodeStack;
 
@@ -200,19 +209,23 @@ KeyValuesParser::ParseError KeyValuesParser::parse(const QString &content, KeyVa
 
     // Check to see if we can start parsing.
     int begin = -1, end = -1;
-    identifyNextToken(content, begin, end);
+    identifyNextToken(content.midRef(0), begin, end);
     if ( begin < 0)
     {
         delete first;
         m_szLastToken = QString();
+        updateProgress(1);
         return NoContentError;
     }
 
     // Continually parse the content.
     do
     {
+        // Send an update on how far we are through the parsing.
+        updateProgress((float)end/(float)content.length());
+
         // Get the next token we've found.
-        QStringRef token = segmentRef(content, begin, end);
+        QStringRef token = segmentRef(content.midRef(0), begin, end);
 
         // Classify the token.
         TokenType type = classifyToken(token);
@@ -257,6 +270,7 @@ KeyValuesParser::ParseError KeyValuesParser::parse(const QString &content, KeyVa
         {
             delete first;
             m_szLastToken = QString();
+            updateProgress(1);
             return error;
         }
 
@@ -300,7 +314,7 @@ KeyValuesParser::ParseError KeyValuesParser::handleTokenPush(const QStringRef &,
         // This is invalid.
         case StateBase:
         {
-            m_iState = StateFail;
+            setState(StateFail);
             m_szLastToken = QString();
             return UnnamedNodeError;
         }
@@ -311,7 +325,7 @@ KeyValuesParser::ParseError KeyValuesParser::handleTokenPush(const QStringRef &,
         {
             KeyValuesNode* node = new KeyValuesNode(m_szLastToken, stack.top());
             stack.push(node);
-            m_iState = StateBase;
+            setState(StateBase);
             m_szLastToken = QString();
             return NoError;
         }
@@ -320,7 +334,7 @@ KeyValuesParser::ParseError KeyValuesParser::handleTokenPush(const QStringRef &,
         default:
         {
             Q_ASSERT(false);
-            m_iState = StateFail;
+            setState(StateFail);
             m_szLastToken = QString();
             return UnspecifiedError;
         }
@@ -340,13 +354,13 @@ KeyValuesParser::ParseError KeyValuesParser::handleTokenPop(const QStringRef &, 
             // which implies more pops than pushes were encountered.
             if ( stack.size() < 2 )
             {
-                m_iState = StateFail;
+                setState(StateFail);
                 m_szLastToken = QString();
                 return StackUnderflowError;
             }
 
             stack.pop();
-            m_iState = StateBase;
+            setState(StateBase);
             m_szLastToken = QString();
             return NoError;
         }
@@ -355,7 +369,7 @@ KeyValuesParser::ParseError KeyValuesParser::handleTokenPop(const QStringRef &, 
         // This is always invalid.
         case StateElevated:
         {
-            m_iState = StateFail;
+            setState(StateFail);
             m_szLastToken = QString();
             return IncompleteNodeError;
         }
@@ -364,7 +378,7 @@ KeyValuesParser::ParseError KeyValuesParser::handleTokenPop(const QStringRef &, 
         default:
         {
             Q_ASSERT(false);
-            m_iState = StateFail;
+            setState(StateFail);
             m_szLastToken = QString();
             return UnspecifiedError;
         }
@@ -383,10 +397,10 @@ KeyValuesParser::ParseError KeyValuesParser::handleTokenQuoted(const QStringRef 
     QString token = unquoteToken(str);
 
     // Convert escape sequences.
-    token = unescapeToken(token);
+    token = unescapeToken(token.midRef(0));
 
     // Forward it on.
-    return handleTokenGeneric(token, stack);
+    return handleTokenGeneric(token.midRef(0), stack);
 }
 
 KeyValuesParser::ParseError KeyValuesParser::handleTokenGeneric(const QStringRef &str, QStack<KeyValuesNode *> &stack)
@@ -397,7 +411,7 @@ KeyValuesParser::ParseError KeyValuesParser::handleTokenGeneric(const QStringRef
         // Store the token in preparation for future operations.
         case StateBase:
         {
-            m_iState = StateElevated;
+            setState(StateElevated);
             m_szLastToken = str.toString();
             return NoError;
         }
@@ -408,7 +422,7 @@ KeyValuesParser::ParseError KeyValuesParser::handleTokenGeneric(const QStringRef
             KeyValuesNode* node = new KeyValuesNode(stack.top());
             node->setKey(m_szLastToken);
             node->setValue(str.toString());
-            m_iState = StateElevated;
+            setState(StateBase);
             m_szLastToken = QString();
             return NoError;
         }
@@ -417,9 +431,35 @@ KeyValuesParser::ParseError KeyValuesParser::handleTokenGeneric(const QStringRef
         default:
         {
             Q_ASSERT(false);
-            m_iState = StateFail;
+            setState(StateFail);
             m_szLastToken = QString();
             return UnspecifiedError;
         }
     }
+}
+
+void KeyValuesParser::setState(State s)
+{
+    m_iState = s;
+}
+
+bool KeyValuesParser::sendUpdates() const
+{
+    return m_bSendUpdates;
+}
+
+void KeyValuesParser::setSendUpdates(bool enabled)
+{
+    if ( m_bSendUpdates == enabled ) return;
+
+    m_bSendUpdates = enabled;
+    emit sendUpdatesStatusChanged(m_bSendUpdates);
+}
+
+void KeyValuesParser::updateProgress(float progress)
+{
+    if ( m_flProgress == progress) return;
+
+    m_flProgress = progress;
+    emit parseUpdate(m_flProgress);
 }

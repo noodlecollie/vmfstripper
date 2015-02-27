@@ -1,5 +1,6 @@
 #include "keyvaluesnode.h"
 #include <QRegularExpression>
+#include <QtDebug>
 
 KeyValuesNode::KeyValuesNode(KeyValuesNode *parent) :
     QObject(parent), m_szKey(), m_varValue()
@@ -120,12 +121,12 @@ void KeyValuesNode::clearValue()
 
 bool KeyValuesNode::isKeyValid() const
 {
-    return m_szKey.isNull();
+    return !m_szKey.isNull();
 }
 
 bool KeyValuesNode::isValueValid() const
 {
-    return m_varValue.isNull();
+    return !m_varValue.isNull();
 }
 
 QString KeyValuesNode::key() const
@@ -152,6 +153,7 @@ QString KeyValuesNode::cleanString(const QString &str)
     // - If the first character is '"', truncate at the next non-escaped '"'.
     
     QString s = str.trimmed();
+    if ( s.isEmpty() ) return QString();
     if ( s.at(0) == '"' )
     {
         // Find the next non-escaped '"'.
@@ -169,4 +171,37 @@ QString KeyValuesNode::cleanString(const QString &str)
     QRegularExpression ex("[\\\"\\{\\}\\s]");
     int index = s.indexOf(ex);
     return index < 0 ? s : s.left(index);
+}
+
+void KeyValuesNode::writeDebug(QDebug &dbg, const KeyValuesNode &node, int depth)
+{
+    QString tab;
+    for ( int i = 0; i < depth; i++ )
+    {
+        tab += "  ";
+    }
+
+    QList<KeyValuesNode*> children = node.childNodes();
+    if ( children.count() < 1 )
+    {
+        if ( node.isKeyValid() ) dbg.nospace().noquote() << tab << "KeyValuesNode(\"" << node.key()
+                                                         << "\", \"" << node.toString() << "\")\n";
+        else dbg.nospace().noquote() << tab << "KeyValuesNode()\n";
+        return;
+    }
+
+    dbg.nospace().noquote() << tab << "KeyValuesNode(\"" << node.key() << "\")\n" << tab << "{\n";
+
+    foreach ( KeyValuesNode* n, children )
+    {
+        writeDebug(dbg, *n, depth+1);
+    }
+
+    dbg.nospace() << tab << "}\n";
+}
+
+QDebug& operator<<(QDebug& dbg, const KeyValuesNode &node)
+{
+    KeyValuesNode::writeDebug(dbg, node);
+    return dbg;
 }

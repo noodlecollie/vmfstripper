@@ -12,6 +12,7 @@ class KeyValuesNode;
 class KeyValuesParser : public QObject
 {
     Q_OBJECT
+    Q_PROPERTY(bool sendUpdates READ sendUpdates WRITE setSendUpdates NOTIFY sendUpdatesStatusChanged)
 public:
     enum ParseError
     {
@@ -27,9 +28,19 @@ public:
 
     explicit KeyValuesParser(QObject *parent = 0);
 
-    static ParseError parse(const QString &content, KeyValuesNode &container);
+    ParseError parse(const QString &content, KeyValuesNode &container);
+
+    bool sendUpdates() const;
+    void setSendUpdates(bool enabled);
 
 signals:
+    void sendUpdatesStatusChanged(bool);
+
+    // Emitted each time the base state is reached again from another state.
+    // The parameter is a float between 0 and 1 indicating the progress of the parsing.
+    // Note that the value of 1 will be emitted before the parse() function has returned -
+    // do not use this signal as a cue that the entire parsing process has finished.
+    void parseUpdate(float);
 
 public slots:
 
@@ -64,12 +75,12 @@ private:
 
     static inline QString segment(const QStringRef &str, int begin, int end)
     {
-        return begin < 0 ? QString() :str.mid(begin, end - begin + 1);
+        return begin < 0 ? QString() :str.toString().mid(begin, end - begin + 1);
     }
 
     static QStringRef segmentRef(const QStringRef &str, int begin, int end)
     {
-        return begin < 0 ? QStringRef() :str.midRef(begin, end - begin + 1);
+        return begin < 0 ? QStringRef() :str.mid(begin, end - begin + 1);
     }
 
     ParseError handleTokenPush(const QStringRef &str, QStack<KeyValuesNode*> &stack);
@@ -78,8 +89,13 @@ private:
     ParseError handleTokenQuoted(const QStringRef &str, QStack<KeyValuesNode*> &stack);
     ParseError handleTokenGeneric(const QStringRef &str, QStack<KeyValuesNode*> &stack);
 
+    void setState(State s);
+    void updateProgress(float progress);
+
     State   m_iState;
     QString m_szLastToken;
+    bool    m_bSendUpdates;
+    float   m_flProgress;
 };
 
 #endif // KEYVALUESPARSER_H

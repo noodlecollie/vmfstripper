@@ -30,7 +30,7 @@ public:
         return findChildren<KeyValuesNode*>(QString(), Qt::FindDirectChildrenOnly);
     }
 
-    inline int childCount() const { return childNodes.count(); }
+    inline int childCount() const { return childNodes().count(); }
     
     inline KeyValuesNode* parentNode() const
     {
@@ -56,9 +56,11 @@ public:
     
     bool isKeyValid() const;
     bool isValueValid() const;
-    inline bool isValid() const { return isKeyValid() && (isValueValid() || childCount() > 0 ); }
+    inline bool isValid() const { return isKeyValid() && (isValueValid() || isContainerNode() ); }
 
-    inline bool containerNode() const { return childCount() > 0; }
+    inline bool isContainerNode() const { return childCount() > 0; }
+
+    static void writeDebug(QDebug &dbg, const KeyValuesNode &node, int depth = 0);
     
 signals:
     void valueChanged(const QVariant&);
@@ -72,5 +74,7 @@ private:
     QString     m_szKey;
     QVariant    m_varValue;
 };
+
+QDebug& operator<<(QDebug &dbg, const KeyValuesNode &node);
 
 #endif // KEYVALUESNODE_H
