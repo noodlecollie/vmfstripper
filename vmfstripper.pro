@@ -16,12 +16,16 @@ SOURCES += main.cpp\
         mainwindow.cpp \
     keyvaluesnode.cpp \
     keyvaluesparser.cpp \
-    loadvmfdialogue.cpp
+    loadvmfdialogue.cpp \
+    keyvaluestoken.cpp \
+    keyvaluesparsernew.cpp
 
 HEADERS  += mainwindow.h \
     keyvaluesnode.h \
     keyvaluesparser.h \
-    loadvmfdialogue.h
+    loadvmfdialogue.h \
+    keyvaluestoken.h \
+    keyvaluesparsernew.h
 
 FORMS    += mainwindow.ui \
     loadvmfdialogue.ui

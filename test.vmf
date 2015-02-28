@@ -6,4 +6,40 @@ versioninfo
 	"mapversion" "36"
 	"formatversion" "100"
 	"prefab" "0"
+	
+	key1
+	{
+		key2 val2
+		key3 val3
+	}
+	
+	key4
+	{
+		key5 val5
+	}
+	
+	key6 val6
 }
+
+// This should be turned into:
+// "versioninfo"
+// {
+	// "editorversion":"400",
+	// "editorbuild":"4940",
+	// "mapversion":"36",
+	// "formatversion":"100",
+	// "prefab":"0",
+	
+	// "key1"
+	// {
+		// "key2":"val2"
+		// "key3":"val3"
+	// },
+	
+	// "key4"
+	// {
+		// "key5":"val5"
+	// },
+	
+	// "key6":"val6"
+// }
