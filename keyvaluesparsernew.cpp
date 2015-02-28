@@ -1,10 +1,34 @@
 #include "keyvaluesparsernew.h"
 #include <QtDebug>
 #include <QStack>
+#include <QJsonDocument>
 
 KeyValuesParserNew::KeyValuesParserNew(QObject *parent) :
     QObject(parent)
 {
+}
+
+QJsonParseError KeyValuesParserNew::jsonFromKeyValues(const QByteArray &keyValues, QJsonDocument &document, QString *errorSnapshot)
+{
+    QByteArray json;
+    simpleKeyValuesToJson(keyValues, json);
+    
+    QJsonParseError error;
+    document = QJsonDocument::fromJson(json, &error);
+    
+    if ( error.error != QJsonParseError::NoError )
+    {
+        if ( errorSnapshot )
+        {
+            int begin = error.offset - 10;
+            int end = error.offset + 10;
+            if ( begin < 0 ) begin = 0;
+            if ( end >= json.length() ) end = json.length();
+            *errorSnapshot = QString(json.mid(begin, end-begin+1));
+        }
+    }
+    
+    return error;
 }
 
 bool KeyValuesParserNew::getNextToken(const QByteArray &array, int from, KeyValuesToken &token)
@@ -22,6 +46,7 @@ bool KeyValuesParserNew::getNextToken(const QByteArray &array, int from, KeyValu
     if ( index >= length )
     {
         token.invalidate();
+        token.setNextReadPosition(length);
         return false;
     }
     
@@ -159,19 +184,24 @@ bool KeyValuesParserNew::handleUnquotedStringToken(const QByteArray &array, int 
 
 void KeyValuesParserNew::writeTokenToArray(QByteArray &array, const KeyValuesToken &token)
 {
-    if ( !token.isValid() ) return;
+    if ( token.type() == KeyValuesToken::TokenInvalid )
+    {
+        return;
+    }
     
     switch ( token.type() )
     {
         case KeyValuesToken::TokenStringQuoted:
-        {
-            array.append(QString("\"%0\"").arg(QString(token.arraySection())));
-            break;
-        }
-        
         case KeyValuesToken::TokenStringUnquoted:
         {
-            array.append(QString("\"%0\"").arg(QString(token.arraySection())));
+            QByteArray arrsub = token.arraySection();
+            
+            // Handle empty string manually.
+            if ( arrsub.length() < 1 )
+            {
+                array.append(QString("\"\""));
+            }
+            else array.append(QString("\"%0\"").arg(QString(arrsub)));
             break;
         }
         
@@ -248,6 +278,7 @@ void KeyValuesParserNew::simpleKeyValuesToJson(const QByteArray &keyValues, QByt
         
         writeTokenToArray(output, token);
         from = token.nextReadPosition();
+        Q_ASSERT(from >= 0);
     }
     
     // Add an ending brace.

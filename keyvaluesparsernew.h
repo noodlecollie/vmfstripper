@@ -3,6 +3,7 @@
 
 #include <QObject>
 #include "keyvaluestoken.h"
+#include <QJsonDocument>
 
 class KeyValuesParserNew : public QObject
 {
@@ -10,15 +11,17 @@ class KeyValuesParserNew : public QObject
 public:
     explicit KeyValuesParserNew(QObject *parent = 0);
     
-    // If the keyvalues file is valid, the JSON file will be valid.
-    // There are no guarantees the other way round.
-    static void simpleKeyValuesToJson(const QByteArray &keyValues, QByteArray &output);
+    QJsonParseError jsonFromKeyValues(const QByteArray &keyValues, QJsonDocument &document, QString* errorSnapshot = NULL);
     
 signals:
     
 public slots:
     
 private:
+    // If the keyvalues file is valid, the JSON file will be valid.
+    // There are no guarantees the other way round.
+    static void simpleKeyValuesToJson(const QByteArray &keyValues, QByteArray &output);
+    
     // Returns false if the end of the array was reached.
     static bool getNextToken(const QByteArray &array, int from, KeyValuesToken &token);
     

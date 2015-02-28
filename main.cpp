@@ -1,4 +1,3 @@
-#if 0
 #include "mainwindow.h"
 #include <QApplication>
 #include <QTextEdit>
@@ -48,37 +47,3 @@ void messageHandler(QtMsgType type, const QMessageLogContext &, const QString &m
         }
     }
 }
-#else
-#include <QApplication>
-#include <QFile>
-#include "keyvaluesparsernew.h"
-#include <QDir>
-#include <QtDebug>
-int main(int argc, char *argv[])
-{
-    QApplication a(argc, argv);
-    
-    QDir dir(qApp->applicationDirPath());
-    dir.cdUp();
-    dir.cdUp();
-    dir.cd("vmfstripper");
-    
-    QFile file(dir.canonicalPath() + "/test_original.vmf");
-    if ( file.open(QIODevice::ReadOnly) )
-    {
-        QByteArray json;
-        KeyValuesParserNew::simpleKeyValuesToJson(file.readAll(), json);
-        
-        QFile out(dir.canonicalPath() + "/output.json");
-        if ( out.open(QIODevice::WriteOnly) )
-        {
-            out.write(json);
-            out.close();
-        }
-        
-        file.close();
-    }
-    
-    return 0;
-}
-#endif

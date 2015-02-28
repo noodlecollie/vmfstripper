@@ -9,9 +9,10 @@
 #include <QDate>
 #include "keyvaluesnode.h"
 #include <QMessageBox>
-#include "keyvaluesparser.h"
+#include "keyvaluesparsernew.h"
 #include "loadvmfdialogue.h"
 #include <QTime>
+#include <QCloseEvent>
 
 #define STYLESHEET_FAILED       "QLabel { background-color : #D63742; }"
 #define STYLESHEET_SUCCEEDED    "QLabel { background-color : #6ADB64; }"
@@ -21,8 +22,12 @@ MainWindow::MainWindow(QWidget *parent) :
     ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
+    m_pJsonWidget = new JsonWidget();
+    m_pJsonWidget->setMinimumSize(QSize(800,600));
+    m_pJsonWidget->setMaximumSize(QSize(800,600));
+    m_pJsonWidget->setObjectName("Tree View");
+    
     m_pLogFile = NULL;
-    m_pKVTree = NULL;
     ui->labelIsImported->setStyleSheet(STYLESHEET_FAILED);
     handleLogFileStatusChange(ui->cbLogToFile->checkState());
     setUpTableHeaders();
@@ -34,7 +39,6 @@ MainWindow::MainWindow(QWidget *parent) :
 MainWindow::~MainWindow()
 {
     delete ui;
-    delete m_pKVTree;
 }
 
 void MainWindow::removeHighlightedEntitiesFromList()
@@ -178,11 +182,7 @@ void MainWindow::chooseVMFFile()
     QString newFileName = info.completeBaseName() + QString("_stripped.") + info.suffix();
     ui->tbOutputFile->setText(info.canonicalFilePath() + QString("/") + newFileName);
     
-    if ( m_pKVTree )
-    {
-        delete m_pKVTree;
-        m_pKVTree = NULL;
-    }
+    m_Document = QJsonDocument();
     
     ui->labelIsImported->setText("Not Imported");
     ui->labelIsImported->setStyleSheet(STYLESHEET_FAILED);
@@ -202,34 +202,42 @@ void MainWindow::chooseExportFile()
     qDebug() << "Chose output file:" << ui->tbOutputFile->text();
 }
 
+QString MainWindow::replaceNewlinesWithLineBreaks(const QString &str)
+{
+    QString s = str;
+    s.replace('\n', "<br/>");
+    return s;
+}
+
 void MainWindow::receiveLogMessage(QtMsgType type, const QString &msg)
 {
     QString rich;
+    QString newmsg = replaceNewlinesWithLineBreaks(msg);
     
     switch (type)
     {
         case QtWarningMsg:
         {
             rich = QString("<span style='color:#510099;font-family:\"Lucida Console\",monospace;'>[%0-%1] %2</span>")
-                    .arg(QDate::currentDate().toString("yyyy:MM:dd")).arg(QTime::currentTime().toString("hh:mm:ss")).arg(msg);
+                    .arg(QDate::currentDate().toString("yyyy:MM:dd")).arg(QTime::currentTime().toString("hh:mm:ss")).arg(newmsg);
             break;
         }
         case QtCriticalMsg:
         {
             rich = QString("<span style='color:#F00;font-family:\"Lucida Console\",monospace;'>[%0-%1] %2</span>")
-                    .arg(QDate::currentDate().toString("yyyy:MM:dd")).arg(QTime::currentTime().toString("hh:mm:ss")).arg(msg);
+                    .arg(QDate::currentDate().toString("yyyy:MM:dd")).arg(QTime::currentTime().toString("hh:mm:ss")).arg(newmsg);
             break;
         }
         case QtFatalMsg:
         {
             rich = QString("<span style='color:#F00;font-family:\"Lucida Console\",monospace;'>[%0-%1] %2</span>")
-                    .arg(QDate::currentDate().toString("yyyy:MM:dd")).arg(QTime::currentTime().toString("hh:mm:ss")).arg(msg);
+                    .arg(QDate::currentDate().toString("yyyy:MM:dd")).arg(QTime::currentTime().toString("hh:mm:ss")).arg(newmsg);
             break;
         }
         default:
         {
             rich = QString("<span style='color:#000;font-family:\"Lucida Console\",monospace;'>[%0-%1] %2</span>")
-                    .arg(QDate::currentDate().toString("yyyy:MM:dd")).arg(QTime::currentTime().toString("hh:mm:ss")).arg(msg);
+                    .arg(QDate::currentDate().toString("yyyy:MM:dd")).arg(QTime::currentTime().toString("hh:mm:ss")).arg(newmsg);
             break;
         }
     }
@@ -284,9 +292,7 @@ void MainWindow::importVMFFile()
         qDebug() << "Import failed: unable to open file for reading.";
         ui->labelIsImported->setText("Not Imported");
         ui->labelIsImported->setStyleSheet(STYLESHEET_FAILED);
-        delete m_pKVTree;
-        m_pKVTree = NULL;
-        return;
+        m_Document = QJsonDocument();
     }
     
     QFileInfo info(file);
@@ -295,56 +301,69 @@ void MainWindow::importVMFFile()
     statusBar()->showMessage(QString("Import initiated."));
     qDebug() << "Import initiated.";
     
-    KeyValuesParser parser;
-    parser.setSendUpdates(true);
-    parser.setInterruptable(true);
+    KeyValuesParserNew parser;
     
-    LoadVmfDialogue dialogue(this);
+    LoadVmfDialogue dialogue(false, this);
     dialogue.setModal(true);
     dialogue.setMessage("Importing...");
-    
-    connect(&parser, SIGNAL(parseUpdate(float)), &dialogue, SLOT(updateProgressBar(float)));
-    connect(&parser, SIGNAL(byteProgress(int,int)), &dialogue, SLOT(updateByteProgress(int,int)));
-    connect(&dialogue, SIGNAL(rejected()), &parser, SLOT(cancelParsing()));
-    
-    if ( m_pKVTree )
-    {
-        delete m_pKVTree;
-        m_pKVTree = new KeyValuesNode("rootNode");
-    }
-    
+    dialogue.update();
     dialogue.show();
-    QString content(file.readAll());
+    QApplication::processEvents();
+    
+    QByteArray content = file.readAll();
     file.close();
     
     QTime timer;
     timer.start();
-    KeyValuesParser::ParseError error = parser.parse(content, *m_pKVTree);
+    QString snapshot;
+    QJsonParseError error = parser.jsonFromKeyValues(content, m_Document, &snapshot);
     int elapsed = timer.elapsed();
-    dialogue.close();
     
-    if ( error != KeyValuesParser::NoError )
+    if ( error.error != QJsonParseError::NoError )
     {
-        QString title, description;
-        int lineNo = 0, charNo = 0, er = 0;
-        parser.parseError(er, title, description, lineNo, charNo);
+        QMessageBox::critical(this, "Import failed", "The VMF import failed - see the log for a full description.");
         
-        QMessageBox::critical(this, "Import failed", QString("<center>The import failed for the following reason:</center><br/>Line %0, position %1:<br/>%2: %3")
-                              .arg(lineNo).arg(charNo).arg(title).arg(description));
-        
-        statusBar()->showMessage("Import failed.");
-        qDebug() << "The import failed for the following reason: Line" << lineNo << "position" << charNo << "-" << title << description;
+        statusBar()->showMessage(QString("Import failed, reason: \"%0\"").arg(error.errorString()));
+        qDebug().nospace() << "VMF import failed. The JSON parser reported: " << error.errorString() <<  " at position " << error.offset << " after keyvalues conversion to JSON.\n"
+                           << "The related portion of the generated JSON is:\n\n"
+                           << "" << snapshot.toLatin1().constData() << "\n"
+                           << "----------^----------\n\n"
+                           << "This is probably due to a malformed VMF file. At some point there'll be keyvalues syntax checking performed beforehand, but for now make sure the"
+                           << "files provided to the importer are valid.";
         
         ui->labelIsImported->setText("Not Imported");
         ui->labelIsImported->setStyleSheet(STYLESHEET_FAILED);
-        delete m_pKVTree;
-        m_pKVTree = NULL;
+        m_Document = QJsonDocument();
+        dialogue.close();
         return;
     }
+    
+    dialogue.setMessage("Populating tree view...");
+    dialogue.updateProgressBar(0.8f);
+    dialogue.update();
+    QApplication::processEvents();
+    m_pJsonWidget->readFrom(m_Document);
     
     ui->labelIsImported->setText("Imported");
     ui->labelIsImported->setStyleSheet(STYLESHEET_SUCCEEDED);
     statusBar()->showMessage("Import succeeded.");
     float seconds = (float)elapsed/1000.0f;
     qDebug().nospace() << "Import succeeded: processed " << fileSize << " bytes in " << seconds << "seconds (" << (float)fileSize/seconds << "bytes/sec)";
+    dialogue.close();
+}
+
+void MainWindow::closeEvent(QCloseEvent *e)
+{
+    m_pJsonWidget->close();
+    QMainWindow::closeEvent(e);
+}
+
+void MainWindow::showTreeView()
+{
+    LoadVmfDialogue dialogue(true, this);
+    dialogue.setMessage("Loading tree view...");
+    dialogue.show();
+    QApplication::processEvents();
+    m_pJsonWidget->show();
+    dialogue.close();
 }

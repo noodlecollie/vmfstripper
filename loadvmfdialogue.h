@@ -12,13 +12,14 @@ class LoadVmfDialogue : public QDialog
     Q_OBJECT
     
 public:
-    explicit LoadVmfDialogue(QWidget *parent = 0);
+    explicit LoadVmfDialogue(bool marquee, QWidget *parent = 0);
     ~LoadVmfDialogue();
     
 signals:
     void cancelPressed();
     
 public slots:
+    void setMarquee(bool enabled);
     void updateProgressBar(float value);
     void updateByteProgress(int current, int total);
     void setMessage(const QString &msg);

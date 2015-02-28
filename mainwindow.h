@@ -4,13 +4,14 @@
 #include <QMainWindow>
 #include <QtMsgHandler>
 #include <QFile>
+#include <QJsonDocument>
+#include "jsonwidget.h"
 
 namespace Ui {
 class MainWindow;
 }
 
 class QTextEdit;
-class KeyValuesNode;
 
 class MainWindow : public QMainWindow
 {
@@ -32,15 +33,21 @@ public slots:
     void chooseExportFile();
     void handleLogFileStatusChange(int status);
     void importVMFFile();
+    void showTreeView();
+    
+protected:
+    virtual void closeEvent(QCloseEvent *);
 
 private:
     void clearTableRow(int row);
     void setUpTableHeaders();
+    static QString replaceNewlinesWithLineBreaks(const QString &str);
 
     Ui::MainWindow *ui;
     QString m_szDefaultDir;
     QFile* m_pLogFile;
-    KeyValuesNode*  m_pKVTree;
+    QJsonDocument m_Document;
+    JsonWidget* m_pJsonWidget;
 };
 
 #endif // MAINWINDOW_H

@@ -1,13 +1,15 @@
 #include "loadvmfdialogue.h"
 #include "ui_loadvmfdialogue.h"
 
-LoadVmfDialogue::LoadVmfDialogue(QWidget *parent) :
+LoadVmfDialogue::LoadVmfDialogue(bool marquee, QWidget *parent) :
     QDialog(parent),
     ui(new Ui::LoadVmfDialogue)
 {
     ui->setupUi(this);
     m_iCurrentBytes = -1;
     m_iTotalBytes = -1;
+    
+    setMarquee(marquee);
 }
 
 LoadVmfDialogue::~LoadVmfDialogue()
@@ -17,6 +19,7 @@ LoadVmfDialogue::~LoadVmfDialogue()
 
 void LoadVmfDialogue::updateProgressBar(float value)
 {
+    if ( ui->progressBar->minimum() == 0 && ui->progressBar->maximum() == 0 ) return;
     ui->progressBar->setValue((int)(value * (float)ui->progressBar->maximum()));
 }
 
@@ -40,5 +43,19 @@ void LoadVmfDialogue::updateMessage()
     {
         QString bytes = QString("Processed %0 of %1 bytes").arg(m_iCurrentBytes).arg(m_iTotalBytes);
         ui->label->setText(QString("<center>%0</center>\n<center>%1</center>").arg(m_szMessage).arg(bytes));
+    }
+}
+
+void LoadVmfDialogue::setMarquee(bool enabled)
+{
+    if ( enabled )
+    {
+        ui->progressBar->setMinimum(0);
+        ui->progressBar->setMaximum(0);
+    }
+    else
+    {
+        ui->progressBar->setMinimum(0);
+        ui->progressBar->setMaximum(100);
     }
 }
