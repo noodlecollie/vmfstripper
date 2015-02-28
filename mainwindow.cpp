@@ -30,7 +30,9 @@ MainWindow::MainWindow(QWidget *parent) :
     m_pLogFile = NULL;
     ui->labelIsImported->setStyleSheet(STYLESHEET_FAILED);
     handleLogFileStatusChange(ui->cbLogToFile->checkState());
-    setUpTableHeaders();
+    setUpReplacementTableHeaders();
+    setUpParentRemovalTableHeaders();
+    setUpExportOrderList();
     m_szDefaultDir = qApp->applicationDirPath();
 
     statusBar()->showMessage("Ready.");
@@ -39,6 +41,18 @@ MainWindow::MainWindow(QWidget *parent) :
 MainWindow::~MainWindow()
 {
     delete ui;
+}
+
+void MainWindow::setUpExportOrderList()
+{
+    QListWidgetItem* item = new QListWidgetItem("Simple Removal", ui->listExportOrder);
+    item->setData(Qt::UserRole, 1);
+    
+    item = new QListWidgetItem("Parent Removal", ui->listExportOrder);
+    item->setData(Qt::UserRole, 2);
+    
+    item = new QListWidgetItem("Replacement", ui->listExportOrder);
+    item->setData(Qt::UserRole, 3);
 }
 
 void MainWindow::removeHighlightedEntitiesFromList()
@@ -57,18 +71,17 @@ void MainWindow::addEntityToList()
     ui->tbObjectToAdd->clear();
 }
 
-void MainWindow::handleTableCellChanged(int row, int)
+void MainWindow::handleTableCellChanged(QTableWidget *table, int row, int)
 {
     static bool shouldReturn = false;
     if ( shouldReturn ) return;
 
     // If there is no blank row at the end of the table, insert one.
-    QTableWidget* t = ui->tableReplacement;
-    int lastRow = t->rowCount() - 1;
+    int lastRow = table->rowCount() - 1;
     bool notEmpty = false;
-    for ( int i = 0; i < t->columnCount(); i++ )
+    for ( int i = 0; i < table->columnCount(); i++ )
     {
-        if ( !t->item(lastRow, i)->text().isEmpty() )
+        if ( table->item(lastRow, i) && !table->item(lastRow, i)->text().isEmpty() )
         {
             notEmpty = true;
             break;
@@ -77,27 +90,38 @@ void MainWindow::handleTableCellChanged(int row, int)
 
     if ( notEmpty )
     {
-        t->insertRow(t->rowCount());
-        int newRow = t->rowCount() - 1;
+        table->insertRow(table->rowCount());
+        int newRow = table->rowCount() - 1;
 
         shouldReturn = true;
-        for ( int i = 0; i < t->columnCount(); i++ )
+        for ( int i = 0; i < table->columnCount(); i++ )
         {
-            t->setItem(newRow, i, new QTableWidgetItem());
+            table->setItem(newRow, i, new QTableWidgetItem());
         }
         shouldReturn = false;
     }
 
     // If all cells in the row are empty and this is not the last row, delete the row.
-    if ( row == t->rowCount() - 1 ) return;
-    for ( int i = 0; i < t->columnCount(); i++ )
+    if ( row == table->rowCount() - 1 ) return;
+    for ( int i = 0; i < table->columnCount(); i++ )
     {
-        if ( !t->item(row, i)->text().isEmpty() ) return;
+        
+        if ( table->item(row, i) && !table->item(row, i)->text().isEmpty() ) return;
     }
 
     shouldReturn = true;
-    t->removeRow(row);
+    table->removeRow(row);
     shouldReturn = false;
+}
+
+void MainWindow::handleReplacementTableCellChanged(int row, int column)
+{
+    handleTableCellChanged(ui->tableReplacement, row, column);
+}
+
+void MainWindow::handleParentRemovalTableCellChanged(int row, int column)
+{
+    handleTableCellChanged(ui->tableParentRemoval, row, column);
 }
 
 void MainWindow::clearTableRow(int row)
@@ -108,11 +132,9 @@ void MainWindow::clearTableRow(int row)
     }
 }
 
-void MainWindow::removeCurrentReplacementEntry()
+void MainWindow::removeCurrentEntry(QTableWidget *table)
 {
-    QTableWidget* t = ui->tableReplacement;
-
-    QList<QTableWidgetSelectionRange> selection = t->selectedRanges();
+    QList<QTableWidgetSelectionRange> selection = table->selectedRanges();
     if ( selection.count() < 1 ) return;
 
     QSet<int> rowSet;
@@ -134,7 +156,7 @@ void MainWindow::removeCurrentReplacementEntry()
         int rowToRemove = rowList.takeFirst();
 
         // Remove it from the table.
-        if ( rowToRemove < t->rowCount() - 1 ) t->removeRow(rowToRemove);
+        if ( rowToRemove < table->rowCount() - 1 ) table->removeRow(rowToRemove);
         else clearTableRow(rowToRemove);
 
         // For the rest of the rows in the list, decrease them by 1 if they were
@@ -146,7 +168,17 @@ void MainWindow::removeCurrentReplacementEntry()
     }
 }
 
-void MainWindow::setUpTableHeaders()
+void MainWindow::removeCurrentReplacementEntry()
+{
+    removeCurrentEntry(ui->tableReplacement);
+}
+
+void MainWindow::removeCurrentParentRemovalTableEntry()
+{
+    removeCurrentEntry(ui->tableParentRemoval);
+}
+
+void MainWindow::setUpReplacementTableHeaders()
 {
     QStringList headers;
     headers << "For key:" << "Replace:" << "With:";
@@ -154,11 +186,30 @@ void MainWindow::setUpTableHeaders()
     ui->tableReplacement->horizontalHeader()->show();
 }
 
+void MainWindow::setUpParentRemovalTableHeaders()
+{
+    QStringList headers;
+    headers << "A key:" << "With this value:";
+    ui->tableParentRemoval->setHorizontalHeaderLabels(headers);
+    ui->tableParentRemoval->horizontalHeader()->show();
+}
+
+void MainWindow::clearTable(QTableWidget *table)
+{
+    table->clear();
+    table->setRowCount(1);
+}
+
 void MainWindow::clearReplacementTable()
 {
-    ui->tableReplacement->clear();
-    ui->tableReplacement->setRowCount(1);
-    setUpTableHeaders();
+    clearTable(ui->tableReplacement);
+    setUpReplacementTableHeaders();
+}
+
+void MainWindow::clearParentRemovalTable()
+{
+    clearTable(ui->tableParentRemoval);
+    setUpParentRemovalTableHeaders();
 }
 
 void MainWindow::chooseVMFFile()
@@ -174,18 +225,19 @@ void MainWindow::chooseVMFFile()
     
     ui->tbFilename->setText(file);
     QFileInfo info(file);
-    m_szDefaultDir = info.canonicalFilePath();
+    m_szDefaultDir = info.canonicalPath();
     ui->labelFileSize->setText(QString("%0 bytes").arg(info.size()));
     
     ui->btnChooseOutput->setEnabled(true);
     ui->btnImport->setEnabled(true);
     QString newFileName = info.completeBaseName() + QString("_stripped.") + info.suffix();
-    ui->tbOutputFile->setText(info.canonicalFilePath() + QString("/") + newFileName);
+    ui->tbOutputFile->setText(info.canonicalPath() + QString("/") + newFileName);
     
     m_Document = QJsonDocument();
     
     ui->labelIsImported->setText("Not Imported");
     ui->labelIsImported->setStyleSheet(STYLESHEET_FAILED);
+    ui->groupExportType->setEnabled(false);
     
     statusBar()->showMessage(QString("Chose file: ") + ui->tbFilename->text());
     qDebug() << "Chose file:" << ui->tbFilename->text();
@@ -292,6 +344,7 @@ void MainWindow::importVMFFile()
         qDebug() << "Import failed: unable to open file for reading.";
         ui->labelIsImported->setText("Not Imported");
         ui->labelIsImported->setStyleSheet(STYLESHEET_FAILED);
+        ui->groupExportType->setEnabled(false);
         m_Document = QJsonDocument();
     }
     
@@ -333,6 +386,7 @@ void MainWindow::importVMFFile()
         
         ui->labelIsImported->setText("Not Imported");
         ui->labelIsImported->setStyleSheet(STYLESHEET_FAILED);
+        ui->groupExportType->setEnabled(false);
         m_Document = QJsonDocument();
         dialogue.close();
         return;
@@ -346,6 +400,7 @@ void MainWindow::importVMFFile()
     
     ui->labelIsImported->setText("Imported");
     ui->labelIsImported->setStyleSheet(STYLESHEET_SUCCEEDED);
+    ui->groupExportType->setEnabled(true);
     statusBar()->showMessage("Import succeeded.");
     float seconds = (float)elapsed/1000.0f;
     qDebug().nospace() << "Import succeeded: processed " << fileSize << " bytes in " << seconds << "seconds (" << (float)fileSize/seconds << "bytes/sec)";
@@ -366,4 +421,30 @@ void MainWindow::showTreeView()
     QApplication::processEvents();
     m_pJsonWidget->show();
     dialogue.close();
+}
+
+void MainWindow::exportJson()
+{
+    if ( ui->tbOutputFile->text().isEmpty() || m_Document.isNull() ) return;
+    
+    QJsonDocument outDoc(m_Document);
+    
+    // TODO: Perform manipulations on the JSON document here.
+    
+    QString filename = ui->tbOutputFile->text() + QString(".json");
+    QFile file(filename);
+    if ( !file.open(QIODevice::WriteOnly) )
+    {
+        QMessageBox::critical(this, "Error", "Could not open export file for writing.");
+        statusBar()->showMessage("Export failed.");
+        qDebug() << "Export failed: the file could not be opened for writing.";
+        return;
+    }
+    
+    file.write(outDoc.toJson());
+    file.close();
+    
+    QMessageBox::information(this, "Export complete", "The export was completed successfully.");
+    statusBar()->showMessage("Export succeeded.");
+    qDebug() << "File successfully saved as" << filename;
 }

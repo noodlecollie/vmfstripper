@@ -35,126 +35,217 @@
        </attribute>
        <layout class="QVBoxLayout" name="verticalLayout_6">
         <item>
-         <layout class="QFormLayout" name="formLayout_3">
-          <item row="0" column="0">
-           <widget class="QLabel" name="fileLabel">
-            <property name="text">
-             <string>File:</string>
-            </property>
-           </widget>
-          </item>
-          <item row="0" column="1">
-           <widget class="QLineEdit" name="tbFilename">
-            <property name="readOnly">
-             <bool>true</bool>
-            </property>
-           </widget>
-          </item>
-          <item row="1" column="1">
-           <layout class="QHBoxLayout" name="horizontalLayout_2">
-            <property name="topMargin">
-             <number>0</number>
-            </property>
-            <item>
-             <spacer name="horizontalSpacer">
-              <property name="orientation">
-               <enum>Qt::Horizontal</enum>
-              </property>
-              <property name="sizeHint" stdset="0">
-               <size>
-                <width>40</width>
-                <height>20</height>
-               </size>
-              </property>
-             </spacer>
-            </item>
-            <item>
-             <widget class="QLabel" name="labelIsImported">
-              <property name="text">
-               <string>Not Imported</string>
-              </property>
-              <property name="margin">
-               <number>4</number>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QPushButton" name="btnImport">
-              <property name="enabled">
-               <bool>false</bool>
-              </property>
-              <property name="text">
-               <string>Import</string>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QPushButton" name="btnOpenFile">
-              <property name="text">
-               <string>Choose...</string>
-              </property>
-             </widget>
-            </item>
-           </layout>
-          </item>
-          <item row="2" column="0">
-           <widget class="QLabel" name="sizeLabel">
-            <property name="text">
-             <string>Size:</string>
-            </property>
-           </widget>
-          </item>
-          <item row="2" column="1">
-           <widget class="QLabel" name="labelFileSize">
-            <property name="text">
-             <string>0 bytes</string>
-            </property>
-            <property name="alignment">
-             <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-            </property>
-           </widget>
-          </item>
-          <item row="3" column="0">
-           <widget class="QLabel" name="outputLabel">
-            <property name="text">
-             <string>Output:</string>
-            </property>
-           </widget>
-          </item>
-          <item row="3" column="1">
-           <widget class="QLineEdit" name="tbOutputFile"/>
-          </item>
-          <item row="4" column="1">
-           <layout class="QHBoxLayout" name="horizontalLayout_4">
-            <property name="topMargin">
-             <number>0</number>
-            </property>
-            <item>
-             <spacer name="horizontalSpacer_2">
-              <property name="orientation">
-               <enum>Qt::Horizontal</enum>
-              </property>
-              <property name="sizeHint" stdset="0">
-               <size>
-                <width>40</width>
-                <height>20</height>
-               </size>
-              </property>
-             </spacer>
-            </item>
-            <item>
-             <widget class="QPushButton" name="btnChooseOutput">
-              <property name="enabled">
-               <bool>false</bool>
-              </property>
-              <property name="text">
-               <string>Choose...</string>
-              </property>
-             </widget>
-            </item>
-           </layout>
-          </item>
-         </layout>
+         <widget class="QGroupBox" name="groupFile">
+          <property name="title">
+           <string>File</string>
+          </property>
+          <layout class="QFormLayout" name="formLayout_2">
+           <item row="0" column="1">
+            <widget class="QLineEdit" name="tbFilename">
+             <property name="readOnly">
+              <bool>true</bool>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="0">
+            <widget class="QLabel" name="fileLabel">
+             <property name="text">
+              <string>Input:</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="1">
+            <layout class="QHBoxLayout" name="horizontalLayout_2">
+             <property name="topMargin">
+              <number>0</number>
+             </property>
+             <item>
+              <spacer name="horizontalSpacer">
+               <property name="orientation">
+                <enum>Qt::Horizontal</enum>
+               </property>
+               <property name="sizeHint" stdset="0">
+                <size>
+                 <width>40</width>
+                 <height>20</height>
+                </size>
+               </property>
+              </spacer>
+             </item>
+             <item>
+              <widget class="QLabel" name="labelIsImported">
+               <property name="text">
+                <string>Not Imported</string>
+               </property>
+               <property name="margin">
+                <number>4</number>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QPushButton" name="btnImport">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+               <property name="text">
+                <string>Import</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QPushButton" name="btnOpenFile">
+               <property name="text">
+                <string>Choose...</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </item>
+           <item row="2" column="0">
+            <widget class="QLabel" name="sizeLabel">
+             <property name="text">
+              <string>Size:</string>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="1">
+            <widget class="QLabel" name="labelFileSize">
+             <property name="text">
+              <string>0 bytes</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+             </property>
+            </widget>
+           </item>
+           <item row="3" column="0">
+            <widget class="QLabel" name="outputLabel">
+             <property name="text">
+              <string>Output:</string>
+             </property>
+            </widget>
+           </item>
+           <item row="3" column="1">
+            <widget class="QLineEdit" name="tbOutputFile"/>
+           </item>
+           <item row="4" column="1">
+            <layout class="QHBoxLayout" name="horizontalLayout_4">
+             <property name="topMargin">
+              <number>0</number>
+             </property>
+             <item>
+              <spacer name="horizontalSpacer_2">
+               <property name="orientation">
+                <enum>Qt::Horizontal</enum>
+               </property>
+               <property name="sizeHint" stdset="0">
+                <size>
+                 <width>40</width>
+                 <height>20</height>
+                </size>
+               </property>
+              </spacer>
+             </item>
+             <item>
+              <widget class="QPushButton" name="btnChooseOutput">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+               <property name="text">
+                <string>Choose...</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </item>
+          </layout>
+          <zorder></zorder>
+          <zorder>tbFilename</zorder>
+          <zorder>fileLabel</zorder>
+          <zorder></zorder>
+          <zorder>sizeLabel</zorder>
+          <zorder>labelFileSize</zorder>
+          <zorder>outputLabel</zorder>
+          <zorder>tbOutputFile</zorder>
+          <zorder></zorder>
+         </widget>
+        </item>
+        <item>
+         <widget class="QGroupBox" name="groupExport">
+          <property name="title">
+           <string>Export</string>
+          </property>
+          <layout class="QGridLayout" name="gridLayout_3">
+           <item row="1" column="3">
+            <widget class="QGroupBox" name="groupExportType">
+             <property name="enabled">
+              <bool>false</bool>
+             </property>
+             <property name="title">
+              <string>Export as:</string>
+             </property>
+             <layout class="QVBoxLayout" name="verticalLayout_11">
+              <item>
+               <spacer name="verticalSpacer_2">
+                <property name="orientation">
+                 <enum>Qt::Vertical</enum>
+                </property>
+                <property name="sizeHint" stdset="0">
+                 <size>
+                  <width>20</width>
+                  <height>40</height>
+                 </size>
+                </property>
+               </spacer>
+              </item>
+              <item>
+               <widget class="QPushButton" name="btnExportVMF">
+                <property name="text">
+                 <string>VMF</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QPushButton" name="btnExportJSON">
+                <property name="toolTip">
+                 <string>&quot;.json&quot; will be added to the file extension.</string>
+                </property>
+                <property name="text">
+                 <string>JSON</string>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </widget>
+           </item>
+           <item row="1" column="0">
+            <widget class="QListWidget" name="listExportOrder">
+             <property name="dragDropMode">
+              <enum>QAbstractItemView::InternalMove</enum>
+             </property>
+             <property name="alternatingRowColors">
+              <bool>true</bool>
+             </property>
+             <property name="spacing">
+              <number>2</number>
+             </property>
+             <property name="uniformItemSizes">
+              <bool>true</bool>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="0">
+            <widget class="QLabel" name="label">
+             <property name="text">
+              <string>Drag to rearrange order.</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignCenter</set>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
         </item>
         <item>
          <spacer name="verticalSpacer">
@@ -171,13 +262,23 @@
         </item>
        </layout>
       </widget>
-      <widget class="QWidget" name="tabRemoval">
+      <widget class="QWidget" name="tabSimpleRemoval">
        <attribute name="title">
-        <string>Removal</string>
+        <string>Simple Removal</string>
        </attribute>
        <layout class="QVBoxLayout" name="verticalLayout_3">
         <item>
+         <widget class="QCheckBox" name="cbRemoval">
+          <property name="text">
+           <string>Enabled</string>
+          </property>
+         </widget>
+        </item>
+        <item>
          <widget class="QGroupBox" name="groupRemove">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
           <property name="title">
            <string>Entities to Remove</string>
           </property>
@@ -248,13 +349,118 @@
         </item>
        </layout>
       </widget>
+      <widget class="QWidget" name="tabParentRemoval">
+       <attribute name="title">
+        <string>Parent Removal</string>
+       </attribute>
+       <layout class="QVBoxLayout" name="verticalLayout_8">
+        <item>
+         <widget class="QCheckBox" name="cbParentRemoval">
+          <property name="text">
+           <string>Enabled</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QGroupBox" name="groupParentRemoval">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
+          <property name="title">
+           <string>Remove parent if it contains:</string>
+          </property>
+          <layout class="QVBoxLayout" name="verticalLayout_9">
+           <item>
+            <widget class="QTableWidget" name="tableParentRemoval">
+             <property name="alternatingRowColors">
+              <bool>true</bool>
+             </property>
+             <property name="rowCount">
+              <number>1</number>
+             </property>
+             <property name="columnCount">
+              <number>2</number>
+             </property>
+             <attribute name="horizontalHeaderVisible">
+              <bool>false</bool>
+             </attribute>
+             <attribute name="horizontalHeaderDefaultSectionSize">
+              <number>200</number>
+             </attribute>
+             <attribute name="horizontalHeaderStretchLastSection">
+              <bool>true</bool>
+             </attribute>
+             <attribute name="verticalHeaderVisible">
+              <bool>false</bool>
+             </attribute>
+             <row/>
+             <column/>
+             <column/>
+            </widget>
+           </item>
+           <item>
+            <layout class="QGridLayout" name="gridLayout_2">
+             <property name="topMargin">
+              <number>0</number>
+             </property>
+             <property name="rightMargin">
+              <number>0</number>
+             </property>
+             <item row="0" column="0">
+              <widget class="QCheckBox" name="cbParentRemovalRegex">
+               <property name="toolTip">
+                <string>If regular expressions are not used, case-insensitive matching is performed.</string>
+               </property>
+               <property name="text">
+                <string>Use regular expressions</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </item>
+           <item>
+            <layout class="QHBoxLayout" name="horizontalLayout_5">
+             <property name="topMargin">
+              <number>0</number>
+             </property>
+             <item>
+              <widget class="QPushButton" name="btnParentRemovalRemoveRows">
+               <property name="text">
+                <string>Remove Rows</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QPushButton" name="btnParentRemovalClear">
+               <property name="text">
+                <string>Clear</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </item>
+          </layout>
+         </widget>
+        </item>
+       </layout>
+      </widget>
       <widget class="QWidget" name="tabReplacement">
        <attribute name="title">
         <string>Replacement</string>
        </attribute>
        <layout class="QVBoxLayout" name="verticalLayout_4">
         <item>
-         <widget class="QGroupBox" name="groupBox">
+         <widget class="QCheckBox" name="cbReplacement">
+          <property name="text">
+           <string>Enabled</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QGroupBox" name="groupReplacement">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
           <property name="title">
            <string>Values to replace</string>
           </property>
@@ -302,7 +508,7 @@
              <item row="0" column="0">
               <widget class="QCheckBox" name="cbRegex">
                <property name="toolTip">
-                <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;If regular expressions are not used, case-insensitive matching is performed.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                <string>If regular expressions are not used, case-insensitive matching is performed.</string>
                </property>
                <property name="text">
                 <string>Use regular expressions</string>
@@ -522,7 +728,7 @@ p, li { white-space: pre-wrap; }
    <sender>tableReplacement</sender>
    <signal>cellChanged(int,int)</signal>
    <receiver>MainWindow</receiver>
-   <slot>handleTableCellChanged(int,int)</slot>
+   <slot>handleReplacementTableCellChanged(int,int)</slot>
    <hints>
     <hint type="sourcelabel">
      <x>249</x>
@@ -630,11 +836,123 @@ p, li { white-space: pre-wrap; }
     </hint>
    </hints>
   </connection>
+  <connection>
+   <sender>tableParentRemoval</sender>
+   <signal>cellChanged(int,int)</signal>
+   <receiver>MainWindow</receiver>
+   <slot>handleParentRemovalTableCellChanged(int,int)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>248</x>
+     <y>240</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>249</x>
+     <y>224</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>btnParentRemovalClear</sender>
+   <signal>clicked()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>clearParentRemovalTable()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>359</x>
+     <y>387</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>249</x>
+     <y>224</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>btnParentRemovalRemoveRows</sender>
+   <signal>clicked()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>removeCurrentParentRemovalTableEntry()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>138</x>
+     <y>387</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>249</x>
+     <y>224</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>cbRemoval</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>groupRemove</receiver>
+   <slot>setEnabled(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>248</x>
+     <y>67</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>248</x>
+     <y>245</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>cbParentRemoval</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>groupParentRemoval</receiver>
+   <slot>setEnabled(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>248</x>
+     <y>67</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>248</x>
+     <y>245</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>cbReplacement</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>groupReplacement</receiver>
+   <slot>setEnabled(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>248</x>
+     <y>67</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>248</x>
+     <y>245</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>btnExportJSON</sender>
+   <signal>clicked()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>exportJson()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>420</x>
+     <y>372</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>249</x>
+     <y>224</y>
+    </hint>
+   </hints>
+  </connection>
  </connections>
  <slots>
   <slot>removeHighlightedEntitiesFromList()</slot>
   <slot>addEntityToList()</slot>
-  <slot>handleTableCellChanged(int,int)</slot>
+  <slot>handleReplacementTableCellChanged(int,int)</slot>
   <slot>removeCurrentReplacementEntry()</slot>
   <slot>clearReplacementTable()</slot>
   <slot>chooseVMFFile()</slot>
@@ -642,5 +960,9 @@ p, li { white-space: pre-wrap; }
   <slot>chooseExportFile()</slot>
   <slot>importVMFFile()</slot>
   <slot>showTreeView()</slot>
+  <slot>handleParentRemovalTableCellChanged(int,int)</slot>
+  <slot>removeCurrentParentRemovalTableEntry()</slot>
+  <slot>clearParentRemovalTable()</slot>
+  <slot>exportJson()</slot>
  </slots>
 </ui>
