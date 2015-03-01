@@ -609,7 +609,7 @@ p, li { white-space: pre-wrap; }
   </action>
   <action name="actionShow_tree_view">
    <property name="text">
-    <string>Show tree view</string>
+    <string>Inspect internal JSON</string>
    </property>
    <property name="shortcut">
     <string>Ctrl+T</string>

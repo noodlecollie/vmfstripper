@@ -26,6 +26,7 @@ MainWindow::MainWindow(QWidget *parent) :
     m_pJsonWidget->setMinimumSize(QSize(800,600));
     m_pJsonWidget->setMaximumSize(QSize(800,600));
     m_pJsonWidget->setObjectName("Tree View");
+    m_bJsonWidgetNeedsUpdate = false;
     
     m_pLogFile = NULL;
     ui->labelIsImported->setStyleSheet(STYLESHEET_FAILED);
@@ -346,6 +347,7 @@ void MainWindow::importVMFFile()
         ui->labelIsImported->setStyleSheet(STYLESHEET_FAILED);
         ui->groupExportType->setEnabled(false);
         m_Document = QJsonDocument();
+        m_bJsonWidgetNeedsUpdate = true;
     }
     
     QFileInfo info(file);
@@ -388,19 +390,15 @@ void MainWindow::importVMFFile()
         ui->labelIsImported->setStyleSheet(STYLESHEET_FAILED);
         ui->groupExportType->setEnabled(false);
         m_Document = QJsonDocument();
+        m_bJsonWidgetNeedsUpdate = true;
         dialogue.close();
         return;
     }
     
-    dialogue.setMessage("Populating tree view...");
-    dialogue.updateProgressBar(0.8f);
-    dialogue.update();
-    QApplication::processEvents();
-    m_pJsonWidget->readFrom(m_Document);
-    
     ui->labelIsImported->setText("Imported");
     ui->labelIsImported->setStyleSheet(STYLESHEET_SUCCEEDED);
     ui->groupExportType->setEnabled(true);
+    m_bJsonWidgetNeedsUpdate = true;
     statusBar()->showMessage("Import succeeded.");
     float seconds = (float)elapsed/1000.0f;
     qDebug().nospace() << "Import succeeded: processed " << fileSize << " bytes in " << seconds << "seconds (" << (float)fileSize/seconds << "bytes/sec)";
@@ -415,9 +413,19 @@ void MainWindow::closeEvent(QCloseEvent *e)
 
 void MainWindow::showTreeView()
 {
-    LoadVmfDialogue dialogue(true, this);
-    dialogue.setMessage("Loading tree view...");
+    LoadVmfDialogue dialogue(false, this);
     dialogue.show();
+    
+    if ( m_bJsonWidgetNeedsUpdate )
+    {
+        dialogue.setMessage("Populating tree...");
+        QApplication::processEvents();
+        m_pJsonWidget->readFrom(m_Document);
+        m_bJsonWidgetNeedsUpdate = false;
+    }
+    
+    dialogue.setMessage("Loading view...");
+    dialogue.updateProgressBar(0.5f);
     QApplication::processEvents();
     m_pJsonWidget->show();
     dialogue.close();

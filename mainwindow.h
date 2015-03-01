@@ -61,6 +61,7 @@ private:
     QFile* m_pLogFile;
     QJsonDocument m_Document;
     JsonWidget* m_pJsonWidget;
+    bool m_bJsonWidgetNeedsUpdate;
 };
 
 #endif // MAINWINDOW_H
