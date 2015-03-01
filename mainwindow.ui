@@ -159,7 +159,6 @@
             </layout>
            </item>
           </layout>
-          <zorder></zorder>
           <zorder>tbFilename</zorder>
           <zorder>fileLabel</zorder>
           <zorder></zorder>
@@ -948,6 +947,22 @@ p, li { white-space: pre-wrap; }
     </hint>
    </hints>
   </connection>
+  <connection>
+   <sender>btnExportVMF</sender>
+   <signal>clicked()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>exportVMF()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>420</x>
+     <y>343</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>249</x>
+     <y>224</y>
+    </hint>
+   </hints>
+  </connection>
  </connections>
  <slots>
   <slot>removeHighlightedEntitiesFromList()</slot>
@@ -964,5 +979,6 @@ p, li { white-space: pre-wrap; }
   <slot>removeCurrentParentRemovalTableEntry()</slot>
   <slot>clearParentRemovalTable()</slot>
   <slot>exportJson()</slot>
+  <slot>exportVMF()</slot>
  </slots>
 </ui>

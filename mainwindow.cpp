@@ -9,7 +9,7 @@
 #include <QDate>
 #include "keyvaluesnode.h"
 #include <QMessageBox>
-#include "keyvaluesparsernew.h"
+#include "keyvaluesparser.h"
 #include "loadvmfdialogue.h"
 #include <QTime>
 #include <QCloseEvent>
@@ -217,9 +217,9 @@ void MainWindow::chooseVMFFile()
     QString file = QFileDialog::getOpenFileName(this, "Chose file", m_szDefaultDir, tr("Valve Map File (*.vmf)"));
     if ( file.isNull() )
     {
-        ui->tbFilename->setText(QString());
-        ui->labelFileSize->setText("0 bytes");
-        statusBar()->showMessage("Choosing file failed.");
+//        ui->tbFilename->setText(QString());
+//        ui->labelFileSize->setText("0 bytes");
+//        statusBar()->showMessage("Choosing file failed.");
         return;
     }
     
@@ -354,7 +354,7 @@ void MainWindow::importVMFFile()
     statusBar()->showMessage(QString("Import initiated."));
     qDebug() << "Import initiated.";
     
-    KeyValuesParserNew parser;
+    KeyValuesParser parser;
     
     LoadVmfDialogue dialogue(false, this);
     dialogue.setModal(true);
@@ -442,6 +442,36 @@ void MainWindow::exportJson()
     }
     
     file.write(outDoc.toJson());
+    file.close();
+    
+    QMessageBox::information(this, "Export complete", "The export was completed successfully.");
+    statusBar()->showMessage("Export succeeded.");
+    qDebug() << "File successfully saved as" << filename;
+}
+
+void MainWindow::exportVMF()
+{
+    if ( ui->tbOutputFile->text().isEmpty() || m_Document.isNull() ) return;
+    
+    QJsonDocument outDoc(m_Document);
+    
+    // TODO: Perform manipulations on the JSON document here.
+    
+    KeyValuesParser parser;
+    QByteArray kv;
+    parser.keyvaluesFromJson(outDoc, kv);
+    
+    QString filename = ui->tbOutputFile->text();
+    QFile file(filename);
+    if ( !file.open(QIODevice::WriteOnly) )
+    {
+        QMessageBox::critical(this, "Error", "Could not open export file for writing.");
+        statusBar()->showMessage("Export failed.");
+        qDebug() << "Export failed: the file could not be opened for writing.";
+        return;
+    }
+    
+    file.write(kv);
     file.close();
     
     QMessageBox::information(this, "Export complete", "The export was completed successfully.");

@@ -17,15 +17,15 @@ SOURCES += main.cpp\
     keyvaluesnode.cpp \
     loadvmfdialogue.cpp \
     keyvaluestoken.cpp \
-    keyvaluesparsernew.cpp \
-    jsonwidget.cpp
+    jsonwidget.cpp \
+    keyvaluesparser.cpp
 
 HEADERS  += mainwindow.h \
     keyvaluesnode.h \
     loadvmfdialogue.h \
     keyvaluestoken.h \
-    keyvaluesparsernew.h \
-    jsonwidget.h
+    jsonwidget.h \
+    keyvaluesparser.h
 
 FORMS    += mainwindow.ui \
     loadvmfdialogue.ui

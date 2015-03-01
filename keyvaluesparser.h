@@ -1,17 +1,20 @@
-#ifndef KEYVALUESPARSERNEW_H
-#define KEYVALUESPARSERNEW_H
+#ifndef KEYVALUESPARSER_H
+#define KEYVALUESPARSER_H
 
 #include <QObject>
 #include "keyvaluestoken.h"
 #include <QJsonDocument>
 
-class KeyValuesParserNew : public QObject
+class KeyValuesParser : public QObject
 {
     Q_OBJECT
 public:
-    explicit KeyValuesParserNew(QObject *parent = 0);
+    explicit KeyValuesParser(QObject *parent = 0);
     
     QJsonParseError jsonFromKeyValues(const QByteArray &keyValues, QJsonDocument &document, QString* errorSnapshot = NULL);
+    void keyvaluesFromJson(const QJsonDocument &document, QByteArray &keyValues);
+    
+    static QString stripIdentifier(const QString &key);
     
 signals:
     
@@ -21,6 +24,8 @@ private:
     // If the keyvalues file is valid, the JSON file will be valid.
     // There are no guarantees the other way round.
     static void simpleKeyValuesToJson(const QByteArray &keyValues, QByteArray &output);
+    
+    static void simpleJsonToKeyValues(const QByteArray &json, QByteArray &output);
     
     // Returns false if the end of the array was reached.
     static bool getNextToken(const QByteArray &array, int from, KeyValuesToken &token);
@@ -49,7 +54,7 @@ private:
     static bool handleQuotedStringToken(const QByteArray &array, int pos, KeyValuesToken &token);
     static bool handleInvalidToken(const QByteArray &array, int pos, KeyValuesToken &token);
     
-    static void writeTokenToArray(QByteArray &array, const KeyValuesToken &token);
+    static void writeTokenToArray(QByteArray &array, const KeyValuesToken &token, int stackValue);
 };
 
-#endif // KEYVALUESPARSERNEW_H
+#endif // KEYVALUESPARSER_H

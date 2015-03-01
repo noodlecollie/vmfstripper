@@ -1,14 +1,14 @@
-#include "keyvaluesparsernew.h"
+#include "keyvaluesparser.h"
 #include <QtDebug>
 #include <QStack>
 #include <QJsonDocument>
 
-KeyValuesParserNew::KeyValuesParserNew(QObject *parent) :
+KeyValuesParser::KeyValuesParser(QObject *parent) :
     QObject(parent)
 {
 }
 
-QJsonParseError KeyValuesParserNew::jsonFromKeyValues(const QByteArray &keyValues, QJsonDocument &document, QString *errorSnapshot)
+QJsonParseError KeyValuesParser::jsonFromKeyValues(const QByteArray &keyValues, QJsonDocument &document, QString *errorSnapshot)
 {
     QByteArray json;
     simpleKeyValuesToJson(keyValues, json);
@@ -31,7 +31,7 @@ QJsonParseError KeyValuesParserNew::jsonFromKeyValues(const QByteArray &keyValue
     return error;
 }
 
-bool KeyValuesParserNew::getNextToken(const QByteArray &array, int from, KeyValuesToken &token)
+bool KeyValuesParser::getNextToken(const QByteArray &array, int from, KeyValuesToken &token)
 {
     Q_ASSERT(token.array() == &array);
     
@@ -78,7 +78,7 @@ bool KeyValuesParserNew::getNextToken(const QByteArray &array, int from, KeyValu
     }
 }
 
-bool KeyValuesParserNew::handleInvalidToken(const QByteArray &array, int pos, KeyValuesToken &token)
+bool KeyValuesParser::handleInvalidToken(const QByteArray &array, int pos, KeyValuesToken &token)
 {
     token.invalidate();
     token.setNextReadPosition(pos+1);
@@ -86,7 +86,7 @@ bool KeyValuesParserNew::handleInvalidToken(const QByteArray &array, int pos, Ke
     return pos < array.length() - 1;
 }
 
-bool KeyValuesParserNew::handleCommentToken(const QByteArray &array, int pos, KeyValuesToken &token)
+bool KeyValuesParser::handleCommentToken(const QByteArray &array, int pos, KeyValuesToken &token)
 {
     // The comment begins at pos+2. Look for the next newline at this position or after.
     int begin = pos+2;
@@ -112,7 +112,7 @@ bool KeyValuesParserNew::handleCommentToken(const QByteArray &array, int pos, Ke
     return false;
 }
 
-bool KeyValuesParserNew::handlePopToken(const QByteArray &array, int pos, KeyValuesToken &token)
+bool KeyValuesParser::handlePopToken(const QByteArray &array, int pos, KeyValuesToken &token)
 {
     token.setType(KeyValuesToken::TokenPop);
     token.setBegin(pos);
@@ -122,7 +122,7 @@ bool KeyValuesParserNew::handlePopToken(const QByteArray &array, int pos, KeyVal
     return pos < array.length() - 1;
 }
 
-bool KeyValuesParserNew::handlePushToken(const QByteArray &array, int pos, KeyValuesToken &token)
+bool KeyValuesParser::handlePushToken(const QByteArray &array, int pos, KeyValuesToken &token)
 {
     token.setType(KeyValuesToken::TokenPush);
     token.setBegin(pos);
@@ -132,7 +132,7 @@ bool KeyValuesParserNew::handlePushToken(const QByteArray &array, int pos, KeyVa
     return pos < array.length() - 1;
 }
 
-bool KeyValuesParserNew::handleQuotedStringToken(const QByteArray &array, int pos, KeyValuesToken &token)
+bool KeyValuesParser::handleQuotedStringToken(const QByteArray &array, int pos, KeyValuesToken &token)
 {
     // The string itself begins at pos+1.
     int begin = pos+1;
@@ -158,7 +158,7 @@ bool KeyValuesParserNew::handleQuotedStringToken(const QByteArray &array, int po
 }
 
 
-bool KeyValuesParserNew::handleUnquotedStringToken(const QByteArray &array, int pos, KeyValuesToken &token)
+bool KeyValuesParser::handleUnquotedStringToken(const QByteArray &array, int pos, KeyValuesToken &token)
 {
     int length = array.length();
     for ( int i = pos+1; i < length; i++ )
@@ -182,7 +182,7 @@ bool KeyValuesParserNew::handleUnquotedStringToken(const QByteArray &array, int 
     return false;
 }
 
-void KeyValuesParserNew::writeTokenToArray(QByteArray &array, const KeyValuesToken &token)
+void KeyValuesParser::writeTokenToArray(QByteArray &array, const KeyValuesToken &token, int stackValue)
 {
     if ( token.type() == KeyValuesToken::TokenInvalid )
     {
@@ -194,14 +194,15 @@ void KeyValuesParserNew::writeTokenToArray(QByteArray &array, const KeyValuesTok
         case KeyValuesToken::TokenStringQuoted:
         case KeyValuesToken::TokenStringUnquoted:
         {
-            QByteArray arrsub = token.arraySection();
-            
-            // Handle empty string manually.
-            if ( arrsub.length() < 1 )
+            // If the stack value is odd, write it as an identifier.
+            if ( stackValue % 2 == 1 )
             {
-                array.append(QString("\"\""));
+                array.append(QString("\"%0_%1\"").arg(stackValue/2).arg(QString(token.arraySection())));
             }
-            else array.append(QString("\"%0\"").arg(QString(arrsub)));
+            else
+            {
+                array.append(QString("\"%0\"").arg(QString(token.arraySection())));
+            }
             break;
         }
         
@@ -221,13 +222,16 @@ void KeyValuesParserNew::writeTokenToArray(QByteArray &array, const KeyValuesTok
     }
 }
 
-void KeyValuesParserNew::simpleKeyValuesToJson(const QByteArray &keyValues, QByteArray &output)
+void KeyValuesParser::simpleKeyValuesToJson(const QByteArray &keyValues, QByteArray &output)
 {
     output.clear();
     
+    // This stack holds how many strings have been written to the current section.
     // Each time we receive a push, push a 0 onto the stack.
     // Each time we receive a string, increment the top element.
     // Every time we receive a pop, pop the top element and increment the new top.
+    // We use this to work out when to prepend a ';' or ',' as well as writing identifier
+    // prefixes to keys (because the QJsonObject doesn't allow duplicate keys).
     QStack<int> braceStack;
     
     // Add a beginning brace, as required by JSON.
@@ -251,7 +255,6 @@ void KeyValuesParserNew::simpleKeyValuesToJson(const QByteArray &keyValues, QByt
             braceStack.pop();
             if ( braceStack.size() > 0 ) braceStack.top()++;
         }
-
         
         // Handle prepending.
         if ( token.isString() && braceStack.size() > 0 )
@@ -276,7 +279,7 @@ void KeyValuesParserNew::simpleKeyValuesToJson(const QByteArray &keyValues, QByt
             output.append(':');
         }
         
-        writeTokenToArray(output, token);
+        writeTokenToArray(output, token, braceStack.top());
         from = token.nextReadPosition();
         Q_ASSERT(from >= 0);
     }
@@ -284,4 +287,146 @@ void KeyValuesParserNew::simpleKeyValuesToJson(const QByteArray &keyValues, QByt
     // Add an ending brace.
     output.append('}');
     braceStack.pop();
+}
+
+void KeyValuesParser::simpleJsonToKeyValues(const QByteArray &json, QByteArray &output)
+{
+    output.clear();
+    int numBraces = 0;
+    int spacesSinceNewline = 0;
+    bool inQuote = false;
+    QStack<int> braceStack;
+    for ( int i = 0; i < json.length(); i++ )
+    {
+        const char* ch = static_cast<const char*>(json.constData() + i);
+        
+        if ( *ch == '{' )
+        {
+            numBraces++;
+            braceStack.push(0);
+            
+            // Only write if this was not a root brace.
+            if ( numBraces > 1 )
+            {
+                output.append('\n');
+                
+                for ( int j = 0; j < spacesSinceNewline-5; j++ )
+                {
+                    output.append(' ');
+                }
+                
+                output.append(*ch);
+            }
+            
+            continue;
+        }
+        
+        if ( *ch == '}' )
+        {
+            numBraces--;
+            braceStack.pop();
+            if ( braceStack.size() > 0 ) braceStack.top()++;
+            
+            // Only write if this was not a root brace.
+            if ( numBraces > 0 )
+            {
+                output.append(*ch);
+            }
+
+            continue;
+        }
+        
+        // Don't write anything if we're not inside the root braces.
+        // We don't want to include these in the KV file.
+        if ( numBraces < 1 ) continue;
+        
+        // If we found an unescaped quote, note this and write it out.
+        if ( *ch == '"' && (i == 0 || *(ch-1) != '\\') )
+        {
+            inQuote = !inQuote;
+            
+            // If we're now in a quote and the stack count is even (ie. this is a key)
+            // find the next underscore.
+            if ( inQuote && braceStack.top() % 2 == 0 )
+            {
+                int j = 1;
+                int length = json.length();
+                while ( i + j < length &&  *(static_cast<const char*>(json.constData()+i+j)) != '_' ) j++;
+                
+                // i will be incremented by the loop, so set to the position of the underscore.
+                i += j;
+            }
+            
+            // If we're no longer in a quote, increment the number of strings we've written.
+            else if ( !inQuote )
+            {
+                braceStack.top()++;
+            }
+            
+            output.append(*ch);
+            continue;
+        }
+        
+        // If we found a newline, reset the number of spaces.
+        if ( *ch == '\n' )
+        {
+            spacesSinceNewline = 0;
+            
+            // Don't output if we're just before a root brace.
+            if ( i > 0 && *(ch-1) == '{' && numBraces == 1 ) continue;
+            
+            output.append(*ch);
+            continue;
+        }
+        
+        // If we found a space, only output it if the number of spaces since the last newline is at least 4.
+        // This is purely for visual purposes: because the root braces are removed, the indentation looks off.
+        if ( *ch == ' ' )
+        {
+            if ( spacesSinceNewline >= 4 ) output.append(*ch);
+            spacesSinceNewline++;
+            continue;
+        }
+        
+        // If we're not in a quote, replace any colons or commas by spaces.
+        if ( !inQuote )
+        {
+            if ( *ch == ':' || *ch == ',' )
+            {
+                output.append(' ');
+                continue;
+            }
+        }
+        
+        output.append(*ch);
+        continue;
+    }
+}
+
+void KeyValuesParser::keyvaluesFromJson(const QJsonDocument &document, QByteArray &keyValues)
+{
+    keyValues.clear();
+    if ( document.isNull() || document.isEmpty() ) return;
+    
+    QByteArray arr = document.toJson();
+    simpleJsonToKeyValues(arr, keyValues);
+}
+
+QString KeyValuesParser::stripIdentifier(const QString &key)
+{
+    // If the string doesn't begin with a number, just return it.
+    QChar c = key.at(0);
+    if ( c < '0' || c > '9' ) return key;
+    
+    // Find the first underscore.
+    for ( int i = 1; i < key.length(); i++ )
+    {
+        if ( key.at(i) == '_' )
+        {
+            if ( i == key.length()-1 ) return QString("");
+            return key.mid(i+1);
+        }
+    }
+    
+    return key;
 }

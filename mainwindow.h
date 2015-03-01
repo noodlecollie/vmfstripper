@@ -33,6 +33,7 @@ public slots:
     void importVMFFile();
     void showTreeView();
     void exportJson();
+    void exportVMF();
     
     void handleReplacementTableCellChanged(int row, int column);
     void removeCurrentReplacementEntry();
