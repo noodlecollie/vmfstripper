@@ -55,6 +55,8 @@ private:
     void removeCurrentEntry(QTableWidget* table);
     void clearTable(QTableWidget* table);
     void setUpExportOrderList();
+    void performFiltering(QJsonDocument &document);
+    int filtersEnabled() const;
 
     Ui::MainWindow *ui;
     QString m_szDefaultDir;

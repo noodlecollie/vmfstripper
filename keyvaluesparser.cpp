@@ -2,6 +2,7 @@
 #include <QtDebug>
 #include <QStack>
 #include <QJsonDocument>
+#include <QJsonObject>
 
 KeyValuesParser::KeyValuesParser(QObject *parent) :
     QObject(parent)

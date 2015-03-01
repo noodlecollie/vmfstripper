@@ -436,8 +436,7 @@ void MainWindow::exportJson()
     if ( ui->tbOutputFile->text().isEmpty() || m_Document.isNull() ) return;
     
     QJsonDocument outDoc(m_Document);
-    
-    // TODO: Perform manipulations on the JSON document here.
+    performFiltering(outDoc);
     
     QString filename = ui->tbOutputFile->text() + QString(".json");
     QFile file(filename);
@@ -462,8 +461,7 @@ void MainWindow::exportVMF()
     if ( ui->tbOutputFile->text().isEmpty() || m_Document.isNull() ) return;
     
     QJsonDocument outDoc(m_Document);
-    
-    // TODO: Perform manipulations on the JSON document here.
+    performFiltering(outDoc);
     
     KeyValuesParser parser;
     QByteArray kv;
@@ -485,4 +483,74 @@ void MainWindow::exportVMF()
     QMessageBox::information(this, "Export complete", "The export was completed successfully.");
     statusBar()->showMessage("Export succeeded.");
     qDebug() << "File successfully saved as" << filename;
+}
+
+void MainWindow::performFiltering(QJsonDocument &document)
+{
+    int numFilters = filtersEnabled();
+    int filtersPerformed = 0;
+    LoadVmfDialogue dialogue(false, this);
+    dialogue.show();
+    
+    for ( int i = 0; i < ui->listExportOrder->count(); i++ )
+    {
+        QListWidgetItem* item = ui->listExportOrder->item(i);
+        if ( !item ) continue;
+        
+        // Simple removal = 0
+        // Parent removal = 1
+        // Replacement = 2
+        
+        switch ( item->data(Qt::UserRole).toInt() )
+        {
+            case 0:
+            {
+                dialogue.setMessage("Simple Removal");
+                QApplication::processEvents();
+                
+                // TODO
+                
+                filtersPerformed++;
+                break;
+            }
+            case 1:
+            {
+                dialogue.setMessage("Parent Removal");
+                QApplication::processEvents();
+                
+                // TODO
+                
+                filtersPerformed++;
+                break;
+            }
+            case 2:
+            {
+                dialogue.setMessage("Replacement");
+                QApplication::processEvents();
+                
+                // TODO
+                
+                filtersPerformed++;
+                break;
+            }
+            default:
+            {
+                break;
+            }
+        }
+        
+        dialogue.updateProgressBar((float)filtersPerformed/(float)numFilters);
+    }
+    
+    dialogue.close();
+}
+
+int MainWindow::filtersEnabled() const
+{
+    int i = 0;
+    if ( ui->cbParentRemoval->isChecked() ) i++;
+    if ( ui->cbRemoval->isChecked() ) i++;
+    if ( ui->cbReplacement->isChecked() ) i++;
+    
+    return i;
 }
