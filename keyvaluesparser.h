@@ -55,6 +55,12 @@ private:
     static bool handleInvalidToken(const QByteArray &array, int pos, KeyValuesToken &token);
     
     static void writeTokenToArray(QByteArray &array, const KeyValuesToken &token, int stackValue);
+
+    static void convertIdentifiersToArrays(QJsonValueRef ref);
+    static void convertArraysToIdentifiers(QJsonValueRef ref);
+
+    static void recursiveIdentifiersToArrays(QJsonValueRef ref);
+    static void recursiveArraysToIdentifiers(QJsonValueRef ref);
 };
 
 #endif // KEYVALUESPARSER_H

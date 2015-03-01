@@ -1,3 +1,4 @@
+#if 1
 #include "mainwindow.h"
 #include <QApplication>
 #include <QTextEdit>
@@ -47,3 +48,21 @@ void messageHandler(QtMsgType type, const QMessageLogContext &, const QString &m
         }
     }
 }
+#else
+#include <QApplication>
+#include <QJsonObject>
+#include <QtDebug>
+int main(int argc, char *argv[])
+{
+    QApplication a(argc, argv);
+
+    QJsonObject o;
+    o.insert("A key", QJsonValue("A value"));
+
+    *(o.begin()) = QJsonValue("Changed value");
+
+    qDebug() << o;
+
+    return 0;
+}
+#endif

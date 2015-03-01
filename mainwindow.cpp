@@ -182,7 +182,7 @@ void MainWindow::removeCurrentParentRemovalTableEntry()
 void MainWindow::setUpReplacementTableHeaders()
 {
     QStringList headers;
-    headers << "For key:" << "Replace:" << "With:";
+    headers << "For key:" << "Replace value:" << "With:";
     ui->tableReplacement->setHorizontalHeaderLabels(headers);
     ui->tableReplacement->horizontalHeader()->show();
 }
@@ -242,7 +242,7 @@ void MainWindow::chooseVMFFile()
     
     statusBar()->showMessage(QString("Chose file: ") + ui->tbFilename->text());
     qDebug() << "Chose file:" << ui->tbFilename->text();
-    qDebug() << "Output file:" << ui->tbOutputFile->text();
+    qDebug() << "Proposed output file:" << ui->tbOutputFile->text();
 }
 
 void MainWindow::chooseExportFile()
@@ -414,11 +414,11 @@ void MainWindow::closeEvent(QCloseEvent *e)
 void MainWindow::showTreeView()
 {
     LoadVmfDialogue dialogue(false, this);
-    dialogue.show();
     
     if ( m_bJsonWidgetNeedsUpdate )
     {
         dialogue.setMessage("Populating tree...");
+        dialogue.show();
         QApplication::processEvents();
         m_pJsonWidget->readFrom(m_Document);
         m_bJsonWidgetNeedsUpdate = false;
@@ -426,6 +426,7 @@ void MainWindow::showTreeView()
     
     dialogue.setMessage("Loading view...");
     dialogue.updateProgressBar(0.5f);
+    dialogue.show();
     QApplication::processEvents();
     m_pJsonWidget->show();
     dialogue.close();

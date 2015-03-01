@@ -3,6 +3,8 @@
 #include <QStack>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QJsonArray>
+#include <QSet>
 
 KeyValuesParser::KeyValuesParser(QObject *parent) :
     QObject(parent)
@@ -27,6 +29,25 @@ QJsonParseError KeyValuesParser::jsonFromKeyValues(const QByteArray &keyValues, 
             if ( end >= json.length() ) end = json.length();
             *errorSnapshot = QString(json.mid(begin, end-begin+1));
         }
+    }
+
+    if ( document.isObject() )
+    {
+        QJsonObject object;
+        object.insert("obj", QJsonValue(document.object()));
+        QJsonObject::iterator it = object.begin();
+        recursiveIdentifiersToArrays(*it);
+        QJsonObject::const_iterator cit = object.constBegin();
+        document.setObject((*cit).toObject());
+    }
+    else if ( document.isArray() )
+    {
+        QJsonObject object;
+        object.insert("arr", QJsonValue(document.array()));
+        QJsonObject::iterator it = object.begin();
+        recursiveIdentifiersToArrays(*it);
+        QJsonObject::const_iterator cit = object.constBegin();
+        document.setArray((*cit).toArray());
     }
     
     return error;
@@ -409,7 +430,30 @@ void KeyValuesParser::keyvaluesFromJson(const QJsonDocument &document, QByteArra
     keyValues.clear();
     if ( document.isNull() || document.isEmpty() ) return;
     
-    QByteArray arr = document.toJson();
+    QByteArray arr;
+    if ( document.isObject() )
+    {
+        QJsonObject object;
+        object.insert("obj", QJsonValue(document.object()));
+        QJsonObject::iterator it = object.begin();
+        recursiveArraysToIdentifiers(*it);
+        QJsonObject::const_iterator cit = object.constBegin();
+        QJsonDocument doc;
+        doc.setObject((*cit).toObject());
+        arr = doc.toJson();
+    }
+    else if ( document.isArray() )
+    {
+        QJsonObject object;
+        object.insert("arr", QJsonValue(document.array()));
+        QJsonObject::iterator it = object.begin();
+        recursiveArraysToIdentifiers(*it);
+        QJsonObject::const_iterator cit = object.constBegin();
+        QJsonDocument doc;
+        doc.setArray((*cit).toArray());
+        arr = doc.toJson();
+    }
+
     simpleJsonToKeyValues(arr, keyValues);
 }
 
@@ -430,4 +474,146 @@ QString KeyValuesParser::stripIdentifier(const QString &key)
     }
     
     return key;
+}
+
+void KeyValuesParser::convertIdentifiersToArrays(QJsonValueRef ref)
+{
+    if ( !ref.isObject() ) return;
+
+    QJsonObject object = ref.toObject();
+    QHash<QString, QString> table;
+
+    // Keep a hash table entry for every non-unique -> unique mapping.
+    QStringList uniqueKeys = object.keys();
+    QSet<QString> keyset;
+    foreach ( QString s, uniqueKeys )
+    {
+        QString strip = stripIdentifier(s);
+        table.insertMulti(strip, s);
+        keyset.insert(strip);
+    }
+
+    // For each non-unique key:
+    QStringList nonUniqueKeys = keyset.toList();
+    foreach ( QString s, nonUniqueKeys )
+    {
+        // Get the unique keys it maps to.
+        QStringList ukeys = table.values(s);
+        Q_ASSERT(ukeys.count() >= 1);
+
+        // If there are multiple mappings:
+        if ( ukeys.count() > 1 )
+        {
+            // Create an array to hold them.
+            QJsonArray arr;
+
+            foreach ( QString ukey, ukeys )
+            {
+                // Add the value to the array instead.
+                arr.append(object.value(ukey));
+                object.remove(ukey);
+            }
+
+            // Add the array to the object under the (previously non-unique
+            // but now unique) key.
+            object.insert(s, arr);
+        }
+
+        // Otherwise, just strip the identifier.
+        else
+        {
+            QJsonValue val = object.take(ukeys.at(0));
+            object.insert(stripIdentifier(ukeys.at(0)), val);
+        }
+    }
+
+    ref = QJsonValue(object);
+}
+
+void KeyValuesParser::convertArraysToIdentifiers(QJsonValueRef ref)
+{
+    if ( !ref.isObject() ) return;
+
+    QJsonObject object = ref.toObject();
+    QStringList keys = object.keys();
+    for ( int i = 0; i < keys.count(); i++ )
+    {
+        QString key = keys.at(i);
+
+        // Check if the value is an array.
+        QJsonValue val = object.take(key);
+        if ( val.isArray() )
+        {
+            QJsonArray arr = val.toArray();
+
+            // For each array entry:
+            for ( int j = 0; j < arr.count(); j++ )
+            {
+                // Create a new, uniquely identified entry in the original object.
+                object.insert(QString("%0_%1").arg(j).arg(key), arr.at(j));
+            }
+        }
+
+        // Otherwise, just add an identifier.
+        else
+        {
+            object.insert(QString("%0_%1").arg(i).arg(key), val);
+        }
+    }
+
+    ref = QJsonValue(object);
+}
+
+void KeyValuesParser::recursiveIdentifiersToArrays(QJsonValueRef ref)
+{
+    if ( ref.isArray() )
+    {
+        QJsonArray array = ref.toArray();
+        for ( int i = 0; i < array.count(); i++ )
+        {
+            recursiveIdentifiersToArrays(array[i]);
+        }
+        ref = QJsonValue(array);
+    }
+    else if ( ref.isObject() )
+    {
+        // Convert first.
+        convertIdentifiersToArrays(ref);
+
+        // Then convert children.
+        QJsonObject object = ref.toObject();
+        for ( QJsonObject::iterator it = object.begin(); it != object.end(); ++it )
+        {
+            recursiveIdentifiersToArrays(*it);
+        }
+
+        ref = QJsonValue(object);
+    }
+}
+
+void KeyValuesParser::recursiveArraysToIdentifiers(QJsonValueRef ref)
+{
+    if ( ref.isArray() )
+    {
+        QJsonArray array = ref.toArray();
+        for ( int i = 0; i < array.count(); i++ )
+        {
+            recursiveArraysToIdentifiers(array[i]);
+        }
+        ref = QJsonValue(array);
+    }
+    else if ( ref.isObject() )
+    {
+        // Convert first.
+        convertArraysToIdentifiers(ref);
+
+        // Then convert children.
+        QJsonObject object = ref.toObject();
+        for ( QJsonObject::iterator it = object.begin(); it != object.end(); ++it )
+        {
+            recursiveArraysToIdentifiers(*it);
+        }
+
+        ref = QJsonValue(object);
+    }
 }
