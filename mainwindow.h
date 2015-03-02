@@ -6,6 +6,8 @@
 #include <QFile>
 #include <QJsonDocument>
 #include "jsonwidget.h"
+#include <QList>
+#include <QPair>
 
 namespace Ui {
 class MainWindow;
@@ -57,6 +59,12 @@ private:
     void setUpExportOrderList();
     void performFiltering(QJsonDocument &document);
     int filtersEnabled() const;
+    
+    // Assumed key and value are escaped regex strings if useRegex is true.
+    bool containsMatchingPair(const QJsonObject &object, const QList<QPair<QString, QString> > &list, bool useRegex = false);
+    
+    // Returns true if any objects were removed.
+    bool removeDirectChildObjectsWithMatchingPairs(QJsonValueRef ref, const QList<QPair<QString, QString> > &list, bool useRegex = false);
 
     Ui::MainWindow *ui;
     QString m_szDefaultDir;

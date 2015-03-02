@@ -190,7 +190,7 @@ void MainWindow::setUpReplacementTableHeaders()
 void MainWindow::setUpParentRemovalTableHeaders()
 {
     QStringList headers;
-    headers << "A key:" << "With this value:";
+    headers << "A key:" << "With this value: (blank = any)";
     ui->tableParentRemoval->setHorizontalHeaderLabels(headers);
     ui->tableParentRemoval->horizontalHeader()->show();
 }
@@ -554,4 +554,127 @@ int MainWindow::filtersEnabled() const
     if ( ui->cbReplacement->isChecked() ) i++;
     
     return i;
+}
+
+bool MainWindow::containsMatchingPair(const QJsonObject &object, const QList<QPair<QString, QString> > &list, bool useRegex)
+{
+    for ( QJsonObject::const_iterator it = object.constBegin(); it != object.constEnd(); ++it )
+    {
+        foreach ( QPair<QString,QString> pair, list )
+        {
+            if ( useRegex )
+            {
+                QRegularExpression rek(pair.first);
+                if ( !rek.match(it.key()).hasMatch() ) continue;
+                
+                if ( !pair.second.isNull() && !pair.second.isEmpty() )
+                {
+                    QRegularExpression rev(pair.second);
+                    QJsonValue val = it.value();
+                    if ( val.isNull() || val.isArray() || val.isObject() || val.isUndefined() ) continue;
+                    
+                    if ( val.isBool() )
+                    {
+                        QString testString(val.toBool() ? "true" : "false");
+                        if ( !rev.match(testString).hasMatch() ) continue;
+                    }
+                    else if ( val.isDouble() )
+                    {
+                        QString testString = QString("%0").arg(val.toDouble());
+                        if ( !rev.match(testString).hasMatch() ) continue;
+                    }
+                    else
+                    {
+                        if ( !rev.match(val.toString()).hasMatch() ) continue;
+                    }
+                }
+            }
+            else
+            {
+                if ( pair.first.compare(it.key(), Qt::CaseInsensitive) != 0 ) continue;
+                
+                if ( !pair.second.isNull() && !pair.second.isEmpty() )
+                {
+                    QJsonValue val = it.value();
+                    if ( val.isNull() || val.isArray() || val.isObject() || val.isUndefined() ) continue;
+                    
+                    if ( val.isBool() )
+                    {
+                        bool b1 = val.toBool();
+                        bool b2 = pair.second.compare("true", Qt::CaseInsensitive) == 0;
+                        if ( b1 != b2 ) continue;
+                    }
+                    else if ( val.isDouble() )
+                    {
+                        double d1 = val.toDouble();
+                        bool ok = false;
+                        double d2 = pair.second.toDouble(&ok);
+                        if ( !ok || d1 != d2 ) continue;
+                    }
+                    else
+                    {
+                        if ( pair.second.compare(val.toString(), Qt::CaseInsensitive) != 0 ) continue;
+                    }
+                }
+            }
+            
+            return true;
+        }
+    }
+    
+    return false;
+}
+
+bool MainWindow::removeDirectChildObjectsWithMatchingPairs(QJsonValueRef ref, const QList<QPair<QString, QString> > &list, bool useRegex)
+{
+    bool removed = false;
+    
+    if ( ref.isObject() )
+    {
+        QJsonObject object = ref.toObject();
+        QJsonObject newObject;
+        
+        // Search object and mark the keys to remove.
+        for ( QJsonObject::const_iterator it = object.constBegin(); it != object.constEnd(); ++it )
+        {
+            QJsonValue v = it.value();
+            if ( v.isObject() )
+            {
+                if ( containsMatchingPair(v.toObject(), list, useRegex) )
+                {
+                    removed = true;
+                    continue;
+                }
+            }
+            
+            newObject.insert(it.key(), it.value());
+        }
+        
+        ref = QJsonValue(newObject);
+    }
+    else if ( ref.isArray() )
+    {
+        QJsonArray array = ref.toArray();
+        QJsonArray newArray;
+        
+        // Make a copy of the array using only the desired indices.
+        for ( int i = 0; i < array.length(); i++ )
+        {
+            QJsonValue v = array.at(i);
+            if ( v.isObject() )
+            {
+                if ( containsMatchingPair(v.toObject(), list, useRegex) )
+                {
+                    removed = true;
+                    continue;
+                }
+            }
+            
+            newArray.append(array.at(i));
+        }
+        
+        ref = QJsonValue(newArray);
+    }
+    
+    return removed;
 }
