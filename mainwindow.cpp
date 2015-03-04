@@ -560,8 +560,10 @@ bool MainWindow::containsMatchingPair(const QJsonObject &object, const QList<QPa
 {
     for ( QJsonObject::const_iterator it = object.constBegin(); it != object.constEnd(); ++it )
     {
-        foreach ( QPair<QString,QString> pair, list )
+        for ( int i = 0; i < list.count(); i++ )
         {
+            QPair<QString, QString> pair = list.at(i);
+            
             if ( useRegex )
             {
                 QRegularExpression rek(pair.first);
@@ -658,7 +660,7 @@ bool MainWindow::removeDirectChildObjectsWithMatchingPairs(QJsonValueRef ref, co
         QJsonArray newArray;
         
         // Make a copy of the array using only the desired indices.
-        for ( int i = 0; i < array.length(); i++ )
+        for ( int i = 0; i < array.count(); i++ )
         {
             QJsonValue v = array.at(i);
             if ( v.isObject() )
