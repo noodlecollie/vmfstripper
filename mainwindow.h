@@ -8,6 +8,7 @@
 #include "jsonwidget.h"
 #include <QList>
 #include <QPair>
+#include <QSet>
 
 namespace Ui {
 class MainWindow;
@@ -65,6 +66,9 @@ private:
     
     // Returns true if any objects were removed.
     bool removeDirectChildObjectsWithMatchingPairs(QJsonValueRef ref, const QList<QPair<QString, QString> > &list, bool useRegex = false);
+
+    QSet<QString> classnamesToRemove() const;
+    void stripEntitiesByClassname(const QSet<QString> &classnames, QJsonObject &documentRootContainer);
 
     Ui::MainWindow *ui;
     QString m_szDefaultDir;

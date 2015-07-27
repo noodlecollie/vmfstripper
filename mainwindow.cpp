@@ -13,6 +13,7 @@
 #include "loadvmfdialogue.h"
 #include <QTime>
 #include <QCloseEvent>
+#include <QByteArray>
 
 #define STYLESHEET_FAILED       "QLabel { background-color : #D63742; }"
 #define STYLESHEET_SUCCEEDED    "QLabel { background-color : #6ADB64; }"
@@ -47,13 +48,13 @@ MainWindow::~MainWindow()
 void MainWindow::setUpExportOrderList()
 {
     QListWidgetItem* item = new QListWidgetItem("Simple Removal", ui->listExportOrder);
-    item->setData(Qt::UserRole, 1);
+    item->setData(Qt::UserRole, 0);
     
     item = new QListWidgetItem("Parent Removal", ui->listExportOrder);
-    item->setData(Qt::UserRole, 2);
+    item->setData(Qt::UserRole, 1);
     
     item = new QListWidgetItem("Replacement", ui->listExportOrder);
-    item->setData(Qt::UserRole, 3);
+    item->setData(Qt::UserRole, 2);
 }
 
 void MainWindow::removeHighlightedEntitiesFromList()
@@ -371,7 +372,8 @@ void MainWindow::importVMFFile()
     QTime timer;
     timer.start();
     QString snapshot;
-    QJsonParseError error = parser.jsonFromKeyValues(content, m_Document, &snapshot);
+    int pos;
+    QJsonParseError error = parser.jsonFromKeyValues(content, m_Document, &snapshot, &pos);
     int elapsed = timer.elapsed();
     
     if ( error.error != QJsonParseError::NoError )
@@ -379,10 +381,15 @@ void MainWindow::importVMFFile()
         QMessageBox::critical(this, "Import failed", "The VMF import failed - see the log for a full description.");
         
         statusBar()->showMessage(QString("Import failed, reason: \"%0\"").arg(error.errorString()));
+
+        // Create a marker string that puts a '^' under the error position.
+        QByteArray marker(pos+1, '-');
+        marker[marker.length()-1] = '^';
+
         qDebug().nospace() << "VMF import failed. The JSON parser reported: " << error.errorString() <<  " at position " << error.offset << " after keyvalues conversion to JSON.\n"
                            << "The related portion of the generated JSON is:\n\n"
                            << "" << snapshot.toLatin1().constData() << "\n"
-                           << "----------^----------\n\n"
+                           << marker.constData() << "\n\n"
                            << "This is probably due to a malformed VMF file. At some point there'll be keyvalues syntax checking performed beforehand, but for now make sure the"
                            << "files provided to the importer are valid.";
         
@@ -401,7 +408,7 @@ void MainWindow::importVMFFile()
     m_bJsonWidgetNeedsUpdate = true;
     statusBar()->showMessage("Import succeeded.");
     float seconds = (float)elapsed/1000.0f;
-    qDebug().nospace() << "Import succeeded: processed " << fileSize << " bytes in " << seconds << "seconds (" << (float)fileSize/seconds << "bytes/sec)";
+    qDebug().nospace() << "Import succeeded: processed " << fileSize << " bytes in " << seconds << "seconds (" << (float)fileSize/seconds << " bytes/sec)";
     dialogue.close();
 }
 
@@ -509,7 +516,9 @@ void MainWindow::performFiltering(QJsonDocument &document)
                 dialogue.setMessage("Simple Removal");
                 QApplication::processEvents();
                 
-                // TODO
+                QJsonObject rootContainer = document.object();
+                stripEntitiesByClassname(classnamesToRemove(), rootContainer);
+                document.setObject(rootContainer);
                 
                 filtersPerformed++;
                 break;
@@ -679,4 +688,67 @@ bool MainWindow::removeDirectChildObjectsWithMatchingPairs(QJsonValueRef ref, co
     }
     
     return removed;
+}
+
+QSet<QString> MainWindow::classnamesToRemove() const
+{
+    QSet<QString> names;
+
+    for ( int i = 0; i < ui->listObjectsToRemove->count(); i++ )
+    {
+        names.insert(ui->listObjectsToRemove->item(i)->text().trimmed());
+    }
+
+    return names;
+}
+
+void MainWindow::stripEntitiesByClassname(const QSet<QString> &classnames, QJsonObject &documentRootContainer)
+{
+    if ( !documentRootContainer.contains("entity") ) return;
+
+    QJsonValue entityval = documentRootContainer.find("entity").value();
+    int entitiesRemoved = 0;
+    qDebug() << "Performing simple entity removal by classname...";
+
+    // If it's an object, there's only one entity.
+    if ( entityval.isObject() )
+    {
+        // Check the "classname" entry.
+        QJsonObject entity = entityval.toObject();
+        QString str = entity.find("classname").value().toString();
+        if ( entity.contains("classname") &&
+             classnames.contains(str) )
+        {
+            documentRootContainer.remove("entity");
+            qDebug() << "Removed entity with classname" << str;
+            entitiesRemoved++;
+
+            // We're done.
+            qDebug() << "Entities removed:" << entitiesRemoved;
+            return;
+        }
+    }
+
+    // There is an array of entities.
+    QJsonArray entities = entityval.toArray();
+
+    // Check each entity.
+    for ( QJsonArray::iterator it = entities.begin(); it != entities.end(); /*increment manually*/ )
+    {
+        QJsonObject ent = (*it).toObject();
+        QString str = ent.find("classname").value().toString();
+        if ( ent.contains("classname") &&
+             classnames.contains(str) )
+        {
+            it = entities.erase(it);
+            qDebug() << "Removed entity with classname" << str;
+            entitiesRemoved++;
+        }
+
+        ++it;
+    }
+
+    // Set the new array back in the object.
+    documentRootContainer.insert("entity", entities);
+    qDebug() << "Entities removed:" << entitiesRemoved;
 }

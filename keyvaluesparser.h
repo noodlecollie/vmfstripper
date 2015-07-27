@@ -11,7 +11,8 @@ class KeyValuesParser : public QObject
 public:
     explicit KeyValuesParser(QObject *parent = 0);
     
-    QJsonParseError jsonFromKeyValues(const QByteArray &keyValues, QJsonDocument &document, QString* errorSnapshot = NULL);
+    QJsonParseError jsonFromKeyValues(const QByteArray &keyValues, QJsonDocument &document,
+                                      QString* errorSnapshot = NULL, int* posWithinSnapshot = NULL);
     void keyvaluesFromJson(const QJsonDocument &document, QByteArray &keyValues);
     
     static QString stripIdentifier(const QString &key);
@@ -26,6 +27,8 @@ private:
     static void simpleKeyValuesToJson(const QByteArray &keyValues, QByteArray &output);
     
     static void simpleJsonToKeyValues(const QByteArray &json, QByteArray &output);
+    static int charAfterPreviousNewlineCharacter(const QByteArray &text, int pos);
+    static int charBeforeNextNewlineCharacter(const QByteArray &text, int pos);
     
     // Returns false if the end of the array was reached.
     static bool getNextToken(const QByteArray &array, int from, KeyValuesToken &token);

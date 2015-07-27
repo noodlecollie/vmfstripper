@@ -11,7 +11,8 @@ KeyValuesParser::KeyValuesParser(QObject *parent) :
 {
 }
 
-QJsonParseError KeyValuesParser::jsonFromKeyValues(const QByteArray &keyValues, QJsonDocument &document, QString *errorSnapshot)
+QJsonParseError KeyValuesParser::jsonFromKeyValues(const QByteArray &keyValues, QJsonDocument &document,
+                                                   QString *errorSnapshot, int *posWithinSnapshot)
 {
     QByteArray json;
     simpleKeyValuesToJson(keyValues, json);
@@ -23,11 +24,22 @@ QJsonParseError KeyValuesParser::jsonFromKeyValues(const QByteArray &keyValues, 
     {
         if ( errorSnapshot )
         {
-            int begin = error.offset - 10;
-            int end = error.offset + 10;
-            if ( begin < 0 ) begin = 0;
-            if ( end >= json.length() ) end = json.length();
-            *errorSnapshot = QString(json.mid(begin, end-begin+1));
+//            int begin = error.offset - 10;
+//            int end = error.offset + 10;
+//            if ( begin < 0 ) begin = 0;
+//            if ( end >= json.length() ) end = json.length();
+//            *errorSnapshot = QString(json.mid(begin, end-begin+1));
+
+            int begin = charAfterPreviousNewlineCharacter(json, error.offset);
+            int end = charBeforeNextNewlineCharacter(json, error.offset);
+            if ( begin >= 0 && begin < json.length() - 1 && end >= 0 && end < json.length() - 1 )
+            {
+                *errorSnapshot = QString(json.mid(begin, end-begin+1));
+                if ( posWithinSnapshot )
+                {
+                    *posWithinSnapshot = error.offset - begin;
+                }
+            }
         }
     }
 
@@ -301,6 +313,9 @@ void KeyValuesParser::simpleKeyValuesToJson(const QByteArray &keyValues, QByteAr
             output.append(':');
         }
         
+        // TODO: We really need to handle the case where there are too many closing braces.
+        Q_ASSERT(braceStack.size() > 0);
+
         writeTokenToArray(output, token, braceStack.top());
         from = token.nextReadPosition();
         Q_ASSERT(from >= 0);
@@ -616,4 +631,23 @@ void KeyValuesParser::recursiveArraysToIdentifiers(QJsonValueRef ref)
 
         ref = QJsonValue(object);
     }
+}
+
+int KeyValuesParser::charAfterPreviousNewlineCharacter(const QByteArray &text, int pos)
+{
+    int l = text.length();
+    if ( pos < 0 || pos >= l ) return -1;
+
+    // Wind back until we find a newline.
+    while ( pos > 0 && text.at(pos) != '\n' ) pos--;
+    return pos+1;
+}
+
+int KeyValuesParser::charBeforeNextNewlineCharacter(const QByteArray &text, int pos)
+{
+    if ( pos < 0 || pos >= text.length() ) return -1;
+
+    // Wind forward until we find a newline.
+    while ( pos < text.length() - 1 && text.at(pos) != '\n' ) pos++;
+    return pos-1;
 }

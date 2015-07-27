@@ -46,6 +46,12 @@ void messageHandler(QtMsgType type, const QMessageLogContext &, const QString &m
             mainWin->receiveLogMessage(type, msg);
             abort();
         }
+
+        default:
+        {
+            mainWin->receiveLogMessage(type, msg);
+            break;
+        }
     }
 }
 #else
